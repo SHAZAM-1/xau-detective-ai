@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from decimal import Decimal
 
+
 from xau_detective.liquidity import analyze_liquidity
 from xau_detective.market import Candle
 
@@ -23,7 +24,7 @@ def test_liquidity_is_lookahead_safe_and_detects_sweep():
     base = list(range(100, 120))
     base[-1] = 118
     result = analyze_liquidity(candles(base), lookback=10)
-    assert result.range_high == Decimal("120")
+    assert result.range_high == Decimal(120)
     assert result.swept_high is False
 
 

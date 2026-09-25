@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
+
 from xau_detective.ingestion import keep_closed_candles, load_multi_timeframe
 from xau_detective.market import Candle
 from xau_detective.timeframes import Timeframe
@@ -8,7 +9,7 @@ from xau_detective.timeframes import Timeframe
 
 def candle(ts):
     return Candle(
-        ts, Decimal("4000"), Decimal("4010"), Decimal("3990"), Decimal("4005")
+        ts, Decimal(4000), Decimal(4010), Decimal(3990), Decimal(4005)
     )
 
 

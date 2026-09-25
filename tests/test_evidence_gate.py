@@ -1,12 +1,13 @@
 from decimal import Decimal
 
+
 from xau_detective.evidence import EvidenceLedger
 from xau_detective.evidence_gate import decide_from_evidence
 from xau_detective.models import Direction, RiskResult, Scenario
 
 
 def risk():
-    return RiskResult(True, Decimal("0.01"), Decimal("1"), Decimal("0.9"), "OK")
+    return RiskResult(True, Decimal("0.01"), Decimal(1), Decimal("0.9"), "OK")
 
 
 def scenario():
