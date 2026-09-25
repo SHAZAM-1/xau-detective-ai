@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 
@@ -7,7 +7,7 @@ from xau_detective.market import Candle
 
 
 def candles(n=60):
-    t = datetime(2026, 1, 1)
+    t = datetime(2026, 1, 1, tzinfo=UTC)
     return tuple(
         Candle(
             t + timedelta(hours=i),

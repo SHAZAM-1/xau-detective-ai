@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 
@@ -22,29 +22,29 @@ class FakeSource:
 
 
 def test_forming_candle_is_removed():
-    now = datetime(2026, 1, 1, 10, 10, tzinfo=timezone.utc)
+    now = datetime(2026, 1, 1, 10, 10, tzinfo=UTC)
     candles = (
-        candle(datetime(2026, 1, 1, 10, 0, tzinfo=timezone.utc)),
-        candle(datetime(2026, 1, 1, 10, 5, tzinfo=timezone.utc)),
+        candle(datetime(2026, 1, 1, 10, 0, tzinfo=UTC)),
+        candle(datetime(2026, 1, 1, 10, 5, tzinfo=UTC)),
     )
     closed = keep_closed_candles(candles, now=now, timeframe=Timeframe.M5)
     assert len(closed) == 2
 
 
 def test_current_candle_is_not_used():
-    now = datetime(2026, 1, 1, 10, 4, tzinfo=timezone.utc)
+    now = datetime(2026, 1, 1, 10, 4, tzinfo=UTC)
     candles = (
-        candle(datetime(2026, 1, 1, 9, 55, tzinfo=timezone.utc)),
-        candle(datetime(2026, 1, 1, 10, 0, tzinfo=timezone.utc)),
+        candle(datetime(2026, 1, 1, 9, 55, tzinfo=UTC)),
+        candle(datetime(2026, 1, 1, 10, 0, tzinfo=UTC)),
     )
     closed = keep_closed_candles(candles, now=now, timeframe=Timeframe.M5)
     assert len(closed) == 1
 
 
 def test_multi_timeframe_loader_runs_quality_gate():
-    now = datetime(2026, 1, 1, 10, 10, tzinfo=timezone.utc)
+    now = datetime(2026, 1, 1, 10, 10, tzinfo=UTC)
     candles = tuple(
-        candle(datetime(2026, 1, 1, 9, 0, tzinfo=timezone.utc) + timedelta(minutes=5 * i))
+        candle(datetime(2026, 1, 1, 9, 0, tzinfo=UTC) + timedelta(minutes=5 * i))
         for i in range(20)
     )
     snapshots = load_multi_timeframe(
