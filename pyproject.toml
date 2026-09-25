@@ -10,6 +10,9 @@ dev = [
   "pytest>=8.0",
   "ruff>=0.8",
 ]
+mt5 = [
+  "MetaTrader5>=5.0.0",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
