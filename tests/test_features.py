@@ -1,7 +1,6 @@
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
-
 from xau_detective.features import atr, compute_features
 from xau_detective.market import Candle
 
