@@ -2,6 +2,7 @@ from decimal import Decimal
 from types import SimpleNamespace
 from datetime import timezone
 
+
 from xau_detective.mt5_adapter import (
     account_snapshot_from_mt5,
     broker_spec_from_mt5,
@@ -21,7 +22,7 @@ def test_mt5_rate_mapping():
     candle = candle_from_mt5(rate)
     assert candle.timestamp.tzinfo == timezone.utc
     assert candle.close == Decimal("4005.0")
-    assert candle.volume == Decimal("123")
+    assert candle.volume == Decimal(123)
 
 
 def test_mt5_symbol_mapping():
@@ -44,5 +45,5 @@ def test_mt5_symbol_mapping():
 def test_mt5_account_mapping():
     info = SimpleNamespace(balance=20, equity=19.5, margin_free=18)
     account = account_snapshot_from_mt5(info)
-    assert account.balance == Decimal("20")
-    assert account.free_margin == Decimal("18")
+    assert account.balance == Decimal(20)
+    assert account.free_margin == Decimal(18)

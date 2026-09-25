@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+
 from xau_detective.models import Direction
 from xau_detective.scenarios import ScenarioInput, generate_scenarios
 

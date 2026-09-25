@@ -1,4 +1,3 @@
-from datetime import datetime, timezone
 from decimal import Decimal
 
 from xau_detective.mt5_source import MT5CandleSource
@@ -46,5 +45,5 @@ class FakeMT5:
 def test_mt5_source_fetch_maps_rates():
     candles = MT5CandleSource(FakeMT5()).fetch("XAUUSD", Timeframe.M5, 2)
     assert len(candles) == 2
-    assert candles[0].close == Decimal("4005")
-    assert candles[1].close == Decimal("4010")
+    assert candles[0].close == Decimal(4005)
+    assert candles[1].close == Decimal(4010)

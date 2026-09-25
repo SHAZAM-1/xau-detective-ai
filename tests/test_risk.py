@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+
 from xau_detective.models import AccountSnapshot, BrokerSpec, RiskRequest
 from xau_detective.risk import calculate_position_size
 
@@ -7,12 +8,12 @@ from xau_detective.risk import calculate_position_size
 def broker(min_lot="0.01"):
     return BrokerSpec(
         symbol="XAUUSD",
-        contract_size=Decimal("100"),
+        contract_size=Decimal(100),
         volume_min=Decimal(min_lot),
-        volume_max=Decimal("100"),
+        volume_max=Decimal(100),
         volume_step=Decimal("0.01"),
         tick_size=Decimal("0.01"),
-        tick_value=Decimal("1"),
+        tick_value=Decimal(1),
         point=Decimal("0.01"),
     )
 
@@ -20,10 +21,10 @@ def broker(min_lot="0.01"):
 def test_infeasible_minimum_lot_is_no_trade():
     result = calculate_position_size(
         RiskRequest(
-            AccountSnapshot(Decimal("20"), Decimal("20"), Decimal("20")),
+            AccountSnapshot(Decimal(20), Decimal(20), Decimal(20)),
             broker(),
-            Decimal("4000"),
-            Decimal("3990"),
+            Decimal(4000),
+            Decimal(3990),
             Decimal("0.01"),
         )
     )
@@ -37,10 +38,10 @@ def test_position_size_uses_broker_tick_value():
     # 0.01 lot would risk $10 before the safety margin.
     result = calculate_position_size(
         RiskRequest(
-            AccountSnapshot(Decimal("1000"), Decimal("1000"), Decimal("1000")),
+            AccountSnapshot(Decimal(1000), Decimal(1000), Decimal(1000)),
             broker(),
-            Decimal("4000"),
-            Decimal("3990"),
+            Decimal(4000),
+            Decimal(3990),
             Decimal("0.01"),
         )
     )
@@ -53,9 +54,9 @@ def test_position_size_uses_broker_tick_value():
 def test_smaller_stop_can_make_minimum_lot_feasible():
     result = calculate_position_size(
         RiskRequest(
-            AccountSnapshot(Decimal("1000"), Decimal("1000"), Decimal("1000")),
+            AccountSnapshot(Decimal(1000), Decimal(1000), Decimal(1000)),
             broker(),
-            Decimal("4000"),
+            Decimal(4000),
             Decimal("3999.90"),
             Decimal("0.01"),
         )

@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from decimal import Decimal
 
+
 from xau_detective.market import Candle
 from xau_detective.regime import TrendState, VolatilityState, classify_regime
 
