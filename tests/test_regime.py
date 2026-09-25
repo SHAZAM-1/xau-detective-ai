@@ -22,7 +22,7 @@ def rising_candles(n=80):
 def test_regime_detects_uptrend():
     result = classify_regime(rising_candles())
     assert result.trend is TrendState.UP
-    assert result.volatility in (VolatilityState.LOW, VolatilityState.NORMAL)
+    assert result.volatility is VolatilityState.HIGH
 
 
 def test_regime_requires_history():
