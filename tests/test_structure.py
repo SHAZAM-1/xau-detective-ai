@@ -22,7 +22,7 @@ def test_upside_breakout_can_create_buy_structure():
             t + timedelta(minutes=20),
             Decimal("120"),
             Decimal("123"),
-            Decimal("109"),
+            Decimal("110"),
             Decimal("122"),
         ),
     )
