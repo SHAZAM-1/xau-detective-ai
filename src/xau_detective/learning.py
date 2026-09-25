@@ -1,9 +1,9 @@
 """Trade memory and outcome learning primitives.
 
-The bot records every closed trade with the evidence available at decision time
-and the realized outcome. This prevents hindsight from contaminating the
-decision snapshot. Statistical model updates should consume these closed
-observations offline and pass validation before becoming live configuration.
+Every decision is logged with only information known at decision time. After a
+trade closes, its outcome and excursion metrics are attached. Lessons are
+derived from closed trades only. No live threshold/model is changed directly
+from one trade; updates must go through an offline validation cycle.
 """
 from __future__ import annotations
 
@@ -65,6 +65,33 @@ class TradeRecord:
                 "mfe_r": mfe_r,
             }
         )
+
+
+@dataclass(frozen=True)
+class TradeLesson:
+    trade_id: str
+    lessons: tuple[str, ...]
+
+
+def extract_lessons(record: TradeRecord) -> TradeLesson:
+    """Convert one closed trade into auditable hypotheses for later testing."""
+    if record.outcome is None:
+        return TradeLesson(record.trade_id, ("TRADE_NOT_CLOSED",))
+
+    lessons: list[str] = []
+    if record.outcome is TradeOutcome.LOSS:
+        lessons.append("LOSS_REQUIRES_POSTMORTEM")
+    if "high_volatility_execution_risk" in record.warnings:
+        lessons.append("HIGH_VOLATILITY_REVIEW")
+    if "regime_trend_conflict" in record.evidence or "momentum_opposes_direction" in record.evidence:
+        lessons.append("CONTRADICTORY_EVIDENCE_REVIEW")
+    if record.mae_r is not None and record.mae_r <= Decimal("-0.8"):
+        lessons.append("ADVERSE_EXCURSION_REVIEW")
+    if record.mfe_r is not None and record.mfe_r >= Decimal("1.0") and record.outcome is TradeOutcome.LOSS:
+        lessons.append("MISSED_EXIT_OR_TARGET_REVIEW")
+    if not lessons:
+        lessons.append("NO_EXCEPTION_IDENTIFIED")
+    return TradeLesson(record.trade_id, tuple(lessons))
 
 
 @dataclass(frozen=True)
