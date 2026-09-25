@@ -1,6 +1,8 @@
 """Translate independent feature families into an auditable evidence ledger."""
 from __future__ import annotations
 
+from decimal import Decimal
+
 from .evidence import EvidenceLedger
 from .models import Direction
 from .regime import RegimeSnapshot, TrendState, VolatilityState
@@ -12,7 +14,7 @@ def build_evidence(
     regime: RegimeSnapshot,
     structure: StructureSnapshot,
     *,
-    momentum: float | None = None,
+    momentum: Decimal | None = None,
     min_independent_families: int = 3,
 ) -> EvidenceLedger:
     ledger = EvidenceLedger(direction)
