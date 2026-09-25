@@ -1,6 +1,5 @@
 from decimal import Decimal
 
-
 from xau_detective.models import AccountSnapshot, BrokerSpec, RiskRequest
 from xau_detective.risk import calculate_position_size
 
