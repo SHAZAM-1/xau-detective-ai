@@ -1,9 +1,7 @@
-from decimal import Decimal
-from types import SimpleNamespace
-from datetime import timezone
-
+from datetime import timezone,from decimal import Decimal,from types import SimpleNamespace
 
 from xau_detective.mt5_adapter import (
+
     account_snapshot_from_mt5,
     broker_spec_from_mt5,
     candle_from_mt5,
@@ -20,7 +18,7 @@ def test_mt5_rate_mapping():
         "tick_volume": 123,
     }
     candle = candle_from_mt5(rate)
-    assert candle.timestamp.tzinfo == timezone.utc
+    assert candle.timestamp.tzinfo == UTC
     assert candle.close == Decimal("4005.0")
     assert candle.volume == Decimal(123)
 

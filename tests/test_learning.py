@@ -1,7 +1,7 @@
 from decimal import Decimal
 
-
 from xau_detective.learning import (
+
     JsonlTradeMemory,
     TradeOutcome,
     TradeRecord,

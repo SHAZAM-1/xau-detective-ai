@@ -1,13 +1,10 @@
-from datetime import datetime, timedelta
-from decimal import Decimal
-
+from datetime import UTC, datetime, timedelta,from decimal import Decimal
 
 from xau_detective.market import Candle
 from xau_detective.regime import TrendState, VolatilityState, classify_regime
 
-
 def rising_candles(n=80):
-    t = datetime(2026, 1, 1)
+    t = datetime(2026, 1, 1, tzinfo=UTC)
     return tuple(
         Candle(
             t + timedelta(hours=i),

@@ -1,11 +1,9 @@
 from decimal import Decimal
 
-
 from xau_detective.evidence_engine import build_evidence
 from xau_detective.models import Direction
 from xau_detective.regime import RegimeSnapshot, TrendState, VolatilityState
 from xau_detective.structure import StructureSnapshot
-
 
 def snapshot(trend=TrendState.UP):
     return RegimeSnapshot(
