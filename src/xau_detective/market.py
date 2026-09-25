@@ -13,7 +13,7 @@ class Candle:
     high: Decimal
     low: Decimal
     close: Decimal
-    volume: Decimal = Decimal("0")
+    volume: Decimal = Decimal(0)
 
     @property
     def body(self) -> Decimal:

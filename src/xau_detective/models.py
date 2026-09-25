@@ -22,7 +22,7 @@ class BrokerSpec:
     tick_size: Decimal
     tick_value: Decimal
     point: Decimal
-    min_stop_distance: Decimal = Decimal("0")
+    min_stop_distance: Decimal = Decimal(0)
 
 
 @dataclass(frozen=True)

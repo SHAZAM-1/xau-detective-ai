@@ -6,8 +6,8 @@ be validated out-of-sample before they influence execution.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
 from decimal import Decimal
+from enum import Enum
 
 from .features import compute_features
 from .market import Candle
@@ -68,7 +68,7 @@ def classify_regime(
             ema_slow_period=ema_slow_period,
         ).ema_fast
         if earlier is not None and earlier != 0:
-            slope = (features.ema_fast - earlier) / earlier * Decimal("100")
+            slope = (features.ema_fast - earlier) / earlier * Decimal(100)
 
     trend = TrendState.UNKNOWN
     if features.ema_fast is not None and features.ema_slow is not None and slope is not None:
@@ -92,7 +92,7 @@ def classify_regime(
     if features.ema_fast is not None and features.ema_slow is not None:
         base = abs(features.ema_slow)
         if base:
-            strength = abs(features.ema_fast - features.ema_slow) / base * Decimal("100")
+            strength = abs(features.ema_fast - features.ema_slow) / base * Decimal(100)
 
     return RegimeSnapshot(
         trend,

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import timedelta
+from itertools import pairwise
 
 from .market import Candle
 
@@ -17,7 +18,7 @@ def validate_candles(candles: tuple[Candle, ...], expected_interval: timedelta |
     if not candles:
         return DataQuality(False, ("NO_CANDLES",))
     reasons: list[str] = []
-    for previous, current in zip(candles, candles[1:]):
+    for previous, current in pairwise(candles):
         if current.timestamp <= previous.timestamp:
             reasons.append("NON_MONOTONIC_TIMESTAMPS")
             break

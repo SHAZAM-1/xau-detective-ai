@@ -7,12 +7,12 @@ from one trade; updates must go through an offline validation cycle.
 """
 from __future__ import annotations
 
+import json
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass
 from decimal import Decimal
 from enum import Enum
-import json
 from pathlib import Path
-from typing import Iterable
 
 from .models import Direction
 
@@ -54,7 +54,7 @@ class TradeRecord:
         exit_reason: str,
         mae_r: Decimal | None = None,
         mfe_r: Decimal | None = None,
-    ) -> "TradeRecord":
+    ) -> TradeRecord:
         return TradeRecord(
             **{
                 **asdict(self),
@@ -119,14 +119,14 @@ def summarize_closed(records: Iterable[TradeRecord]) -> LearningStats:
     count = len(closed)
 
     def avg(values: list[Decimal]) -> Decimal:
-        return sum(values, Decimal("0")) / Decimal(len(values)) if values else Decimal("0")
+        return sum(values, Decimal(0)) / Decimal(len(values)) if values else Decimal(0)
 
     return LearningStats(
         closed_trades=count,
         wins=len(wins),
         losses=len(losses),
         breakevens=len(breakevens),
-        win_rate=Decimal(len(wins)) / Decimal(count) if count else Decimal("0"),
+        win_rate=Decimal(len(wins)) / Decimal(count) if count else Decimal(0),
         expectancy_r=avg([r.pnl_r for r in closed]),
         average_win_r=avg(wins),
         average_loss_r=avg(losses),

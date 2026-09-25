@@ -9,9 +9,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Callable
+from collections.abc import Callable
 
 from .market import Candle
+
 from .models import Direction
 
 
@@ -27,9 +28,9 @@ class TradePlan:
 class BacktestConfig:
     tick_size: Decimal
     tick_value: Decimal
-    spread: Decimal = Decimal("0")
-    slippage: Decimal = Decimal("0")
-    commission_per_lot_per_side: Decimal = Decimal("0")
+    spread: Decimal = Decimal(0)
+    slippage: Decimal = Decimal(0)
+    commission_per_lot_per_side: Decimal = Decimal(0)
 
 
 @dataclass(frozen=True)
@@ -75,14 +76,14 @@ def _price_to_pnl(
 
 
 def _fill_entry(open_price: Decimal, direction: Direction, config: BacktestConfig) -> Decimal:
-    half_spread = config.spread / Decimal("2")
+    half_spread = config.spread / Decimal(2)
     if direction is Direction.BUY:
         return open_price + half_spread + config.slippage
     return open_price - half_spread - config.slippage
 
 
 def _fill_exit(price: Decimal, direction: Direction, config: BacktestConfig) -> Decimal:
-    half_spread = config.spread / Decimal("2")
+    half_spread = config.spread / Decimal(2)
     if direction is Direction.BUY:
         return price - half_spread - config.slippage
     return price + half_spread + config.slippage
@@ -94,7 +95,7 @@ def run_backtest(
     config: BacktestConfig,
 ) -> BacktestResult:
     if len(candles) < 2:
-        return BacktestResult((), Decimal("0"), 0, 0, 0, Decimal("0"))
+        return BacktestResult((), Decimal(0), 0, 0, 0, Decimal(0))
     if config.spread < 0 or config.slippage < 0 or config.commission_per_lot_per_side < 0:
         raise ValueError("trading frictions cannot be negative")
 
@@ -149,7 +150,7 @@ def run_backtest(
             config.tick_value,
         )
         commission = (
-            config.commission_per_lot_per_side * plan.volume * Decimal("2")
+            config.commission_per_lot_per_side * plan.volume * Decimal(2)
         )
         net = gross - commission
 
@@ -170,14 +171,14 @@ def run_backtest(
         )
         i = exit_index + 1
 
-    net_pnl = sum((trade.net_pnl for trade in trades), Decimal("0"))
+    net_pnl = sum((trade.net_pnl for trade in trades), Decimal(0))
     wins = sum(trade.net_pnl > 0 for trade in trades)
     losses = sum(trade.net_pnl < 0 for trade in trades)
     breakevens = len(trades) - wins - losses
 
-    equity = Decimal("0")
-    peak = Decimal("0")
-    max_drawdown = Decimal("0")
+    equity = Decimal(0)
+    peak = Decimal(0)
+    max_drawdown = Decimal(0)
     for trade in trades:
         equity += trade.net_pnl
         peak = max(peak, equity)
