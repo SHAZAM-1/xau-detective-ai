@@ -34,10 +34,10 @@ class TradeRecord:
     take_profit: Decimal | None
     setup_score: int
     evidence: tuple[str, ...]
-    contradictions: tuple[str, ...]
     warnings: tuple[str, ...]
     regime: str
     entry_reason: str
+    contradictions: tuple[str, ...] = ()
     outcome: TradeOutcome | None = None
     pnl: Decimal | None = None
     pnl_r: Decimal | None = None
