@@ -13,7 +13,7 @@ def test_upside_breakout_can_create_buy_structure():
             t + timedelta(minutes=i),
             Decimal("100"),
             Decimal(101 + i),
-            Decimal("99"),
+            Decimal(90 + i),
             Decimal(100 + i),
         )
         for i in range(21)
