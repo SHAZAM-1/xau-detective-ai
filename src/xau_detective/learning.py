@@ -34,6 +34,7 @@ class TradeRecord:
     take_profit: Decimal | None
     setup_score: int
     evidence: tuple[str, ...]
+    contradictions: tuple[str, ...]
     warnings: tuple[str, ...]
     regime: str
     entry_reason: str
@@ -83,11 +84,15 @@ def extract_lessons(record: TradeRecord) -> TradeLesson:
         lessons.append("LOSS_REQUIRES_POSTMORTEM")
     if "high_volatility_execution_risk" in record.warnings:
         lessons.append("HIGH_VOLATILITY_REVIEW")
-    if "regime_trend_conflict" in record.evidence or "momentum_opposes_direction" in record.evidence:
+    if record.contradictions:
         lessons.append("CONTRADICTORY_EVIDENCE_REVIEW")
     if record.mae_r is not None and record.mae_r <= Decimal("-0.8"):
         lessons.append("ADVERSE_EXCURSION_REVIEW")
-    if record.mfe_r is not None and record.mfe_r >= Decimal("1.0") and record.outcome is TradeOutcome.LOSS:
+    if (
+        record.mfe_r is not None
+        and record.mfe_r >= Decimal("1.0")
+        and record.outcome is TradeOutcome.LOSS
+    ):
         lessons.append("MISSED_EXIT_OR_TARGET_REVIEW")
     if not lessons:
         lessons.append("NO_EXCEPTION_IDENTIFIED")
@@ -159,6 +164,7 @@ class JsonlTradeMemory:
             raw["direction"] = Direction(raw["direction"])
             raw["outcome"] = TradeOutcome(raw["outcome"]) if raw.get("outcome") else None
             raw["evidence"] = tuple(raw.get("evidence", ()))
+            raw["contradictions"] = tuple(raw.get("contradictions", ()))
             raw["warnings"] = tuple(raw.get("warnings", ()))
             records.append(TradeRecord(**raw))
         return tuple(records)
