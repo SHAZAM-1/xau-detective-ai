@@ -19,7 +19,7 @@ def candle(i, open_, high, low, close):
 def test_backtest_enters_next_bar_and_applies_friction():
     candles = (
         candle(0, 100, 101, 99, 100),
-        candle(1, 100, 104, 99, 103),
+        candle(1, 100, 104, 100, 103),
         candle(2, 103, 106, 102, 105),
     )
 
