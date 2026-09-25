@@ -1,7 +1,6 @@
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
-
 from xau_detective.ingestion import keep_closed_candles, load_multi_timeframe
 from xau_detective.market import Candle
 from xau_detective.timeframes import Timeframe
