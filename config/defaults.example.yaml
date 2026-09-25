@@ -1,0 +1,31 @@
+# Example configuration only.
+# Never put API keys, passwords, broker credentials, or account secrets here.
+
+instrument:
+  symbol: XAUUSD
+
+risk:
+  risk_per_trade: 0.01
+  max_daily_loss: 0.02
+
+execution:
+  max_spread: null
+  max_slippage: null
+  safety_margin: 0.90
+
+timeframes:
+  context: D1
+  regime: H4
+  structure: H1
+  setup: M15
+  entry: M5
+
+strategy:
+  min_reward_risk: 2.0
+  require_closed_candle_confirmation: true
+
+safety:
+  allow_martingale: false
+  allow_grid: false
+  allow_averaging_down: false
+  autonomous_live_execution: false
