@@ -1,7 +1,10 @@
-from datetime import UTC, datetime, timedelta,from decimal import Decimal
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
+
 
 from xau_detective.liquidity import analyze_liquidity
 from xau_detective.market import Candle
+
 
 def candles(values):
     start = datetime(2026, 1, 1, tzinfo=UTC)

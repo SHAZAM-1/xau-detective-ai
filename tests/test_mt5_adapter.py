@@ -1,7 +1,9 @@
-from datetime import timezone,from decimal import Decimal,from types import SimpleNamespace
+from decimal import Decimal
+from types import SimpleNamespace
+from datetime import timezone
+
 
 from xau_detective.mt5_adapter import (
-
     account_snapshot_from_mt5,
     broker_spec_from_mt5,
     candle_from_mt5,
