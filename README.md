@@ -2,7 +2,7 @@
 
 Evidence-driven XAUUSD trading research and decision-support system.
 
-> **Status:** Phase 0 — foundation and specification.
+> **Status:** V1 deterministic engine foundation — market features, regime analysis, evidence gating, MT5 ingestion, risk sizing, and trade memory are implemented. Statistical learning is deliberately gated behind closed-trade validation.
 
 ## Mission
 
@@ -14,35 +14,78 @@ It is designed for robustness and auditability, not guaranteed returns.
 
 - Evidence before action.
 - Multi-timeframe context.
+- Independent evidence families rather than one-indicator decisions.
 - Competing Bullish / Bearish / No-Trade scenarios.
-- Capital-aware position sizing.
+- Capital-aware position sizing from actual broker specifications.
 - Hard risk and execution vetoes.
 - No Martingale, Grid, or averaging down.
 - No autonomous live execution in V1.
-- Backtest and out-of-sample validation before deployment.
-- Every decision should be auditable.
+- Backtest, out-of-sample, walk-forward and paper validation before deployment.
+- Every decision and every closed trade should be auditable.
+- Closed trades become learning data; a single trade never changes live strategy parameters.
 
 ## Current architecture
 
 ```
-Data Ingestion
-    ↓
-Data Quality
-    ↓
-Feature Engineering
-    ↓
+MT5 / Market Data
+      ↓
+Closed-Candle Filter
+      ↓
+Data Quality Gate
+      ↓
+Feature Engine
+  ├─ Trend / EMA / Slope
+  ├─ Volatility / ATR / Range
+  ├─ Momentum / Returns
+  └─ Structure / Liquidity hypotheses
+      ↓
 Market Regime
-    ↓
+      ↓
 Scenario Engine
-    ↓
-Evidence / Conflict Analysis
-    ↓
-Risk & Execution Gate
-    ↓
+      ↓
+Evidence Ledger
+  ├─ Supporting evidence
+  ├─ Contradictions
+  └─ Warnings
+      ↓
+Evidence Gate
+      ↓
+Risk / Execution Gate
+      ↓
 Decision Report
-    ↓
-Audit Log
+      ↓
+Trade Memory (JSONL)
+      ↓
+Closed-Trade Outcome + MAE/MFE
+      ↓
+Learning / Postmortem Dataset
+      ↓
+Offline validation → approved model/config only
 ```
+
+## Learning philosophy
+
+The bot is built to **learn from every completed trade**, including failures, without contaminating the live decision with hindsight.
+
+For each trade it records:
+
+- decision-time evidence and warnings
+- regime
+- setup score
+- entry / stop / target
+- realized P&L and P&L in R
+- exit reason
+- MAE / MFE when available
+- postmortem lesson tags
+
+A loss can therefore become a research observation such as:
+
+- contradictory-evidence review
+- high-volatility execution review
+- adverse-excursion review
+- missed-exit/target review
+
+The important safety rule is: **the bot does not blindly rewrite its strategy after one loss or one win**. Learning happens from a closed historical sample, then a new rule/model must survive out-of-sample and walk-forward validation before it can influence live configuration.
 
 ## Repository map
 
@@ -60,7 +103,7 @@ Audit Log
 
 The research direction is **MetaTrader 5 + Python**.
 
-MT5 is intended for market/execution connectivity and broker specifications. Python is intended for research, feature engineering, validation, backtesting, and later statistical/ML components.
+MT5 is intended for market/execution connectivity and broker specifications. Python is intended for research, feature engineering, validation, backtesting, trade-memory analysis, and later statistical/ML components.
 
 ## Important risk statement
 
@@ -72,17 +115,29 @@ If the requested position cannot be executed while respecting the configured ris
 
 ## Development status
 
-### Phase 0 — Foundation
-- [x] Repository created
-- [x] Architecture specification
-- [x] Strategy V1 specification
-- [x] Risk model specification
-- [x] Scoring specification
-- [x] Validation plan
-- [x] Roadmap
-- [ ] MT5 data adapter
-- [ ] Deterministic risk engine
-- [ ] Backtest engine
+### Implemented
+- [x] Repository architecture and specifications
+- [x] Deterministic risk engine
+- [x] Broker specification validation
+- [x] MT5 adapter boundary
+- [x] MT5 candle source
+- [x] Closed-candle multi-timeframe ingestion
+- [x] Data-quality gate
+- [x] Deterministic feature engine
+- [x] Market-regime classifier
+- [x] Evidence ledger and conflict gate
+- [x] Append-only closed-trade memory
+- [x] Learning statistics and postmortem lesson extraction
+- [x] GitHub Actions test/lint workflow
+
+### Next
+- [ ] Backtest engine with realistic spread/commission/slippage
+- [ ] Session and liquidity features
+- [ ] Historical feature/outcome dataset builder
+- [ ] Walk-forward evaluation
+- [ ] Calibrated statistical scoring
 - [ ] Paper-trading pipeline
+- [ ] Broker-aware execution simulator
+- [ ] Live execution only after validation and risk review
 
 See [Roadmap](docs/ROADMAP.md) for the planned sequence.
