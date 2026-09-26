@@ -145,7 +145,7 @@ def audit_architecture(findings: list[tuple[str, str]]) -> None:
     elif "a.equity * request.risk_fraction" in risk_text:
         findings.append(("PASS", "Risk sizing uses account equity."))
 
-    if "(Timeframe.D1, d1)" in pipeline_text and "compute_features(d1" not in pipeline_text:
+    if "(Timeframe.D1, d1)" in pipeline_text and "d1_regime" not in pipeline_text:
         findings.append(("WARN", "D1 context is validated but does not currently contribute evidence or direction."))
     if "entry = m5[-1].close" in pipeline_text:
         findings.append(("WARN", "M5 currently supplies the entry price but no independent M5 confirmation family."))
@@ -158,7 +158,7 @@ def audit_architecture(findings: list[tuple[str, str]]) -> None:
         if key in risk_doc_text and key not in models_text and key not in risk_text:
             findings.append(("WARN", f"Risk documentation requires {key} controls, but the current risk domain model does not implement a {key} input/gate."))
 
-    if "A 0–100 setup-quality score" in strategy_text and "ledger.independent_evidence_count * 25" in pipeline_text:
+    if "A 0–100 setup-quality score" in strategy_text and "score_evidence_weight" not in pipeline_text:
         findings.append(("WARN", "Pipeline has provisional hard-coded setup-score weights; strategy spec says score weights require historical validation."))
 
     if "validate_candles(candles)" in pipeline_text and "expected_interval" not in pipeline_text:

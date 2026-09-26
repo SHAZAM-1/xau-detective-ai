@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 from xau_detective.models import AccountSnapshot, BrokerSpec, Direction
-from xau_detective.pipeline import analyze_market
+from xau_detective.pipeline import AnalysisConfig, analyze_market
 
 
 def test_pipeline_rejects_bad_data_before_analysis():
@@ -25,10 +25,16 @@ def test_pipeline_rejects_bad_data_before_analysis():
         ),
         now=datetime(2026, 9, 26, 14, 0, tzinfo=UTC),
     )
-
     assert result.decision.direction is Direction.NO_TRADE
     assert result.decision.reason == "DATA_QUALITY:D1:NO_CANDLES"
 
 
 def test_pipeline_never_executes_an_order():
     assert not hasattr(analyze_market, "execute")
+
+
+def test_analysis_config_keeps_score_weights_explicitly_provisional():
+    config = AnalysisConfig()
+    assert config.score_evidence_weight == 25
+    assert config.score_reward_risk_weight == 15
+    assert config.score_session_weight == 10

@@ -17,6 +17,10 @@ timeframes:
 strategy:
   min_reward_risk: 2.0
   require_closed_candle_confirmation: true
+  score_weights:
+    evidence_family: 25
+    reward_risk: 15
+    session: 10
 safety:
   allow_martingale: false
   allow_grid: false
