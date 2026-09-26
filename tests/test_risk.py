@@ -63,3 +63,19 @@ def test_smaller_stop_can_make_minimum_lot_feasible():
     assert result.executable
     assert result.volume == Decimal("0.90")
     assert result.estimated_loss == Decimal("9.00")
+
+
+def test_position_size_uses_equity_not_balance():
+    result = calculate_position_size(
+        RiskRequest(
+            AccountSnapshot(Decimal(1000), Decimal(500), Decimal(500)),
+            broker(),
+            Decimal(4000),
+            Decimal("3999.90"),
+            Decimal("0.01"),
+        )
+    )
+    assert result.executable
+    assert result.risk_amount == Decimal("5.00")
+    assert result.volume == Decimal("0.45")
+    assert result.estimated_loss == Decimal("4.50")
