@@ -30,7 +30,7 @@ def calculate_position_size(request: RiskRequest) -> RiskResult:
     if stop_distance < b.min_stop_distance:
         return RiskResult(False, Decimal(0), Decimal(0), Decimal(0), "STOP_TOO_CLOSE")
 
-    risk_budget = a.balance * request.risk_fraction
+    risk_budget = a.equity * request.risk_fraction
     ticks = stop_distance / b.tick_size
     loss_per_lot = ticks * b.tick_value
     if loss_per_lot <= 0:
