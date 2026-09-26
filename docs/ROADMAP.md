@@ -23,12 +23,16 @@
 - Audit logging
 - Historical backtest
 
-## V1.5 — Validation
+## V1.5 — Demo / Validation
+- Explicit RESEARCH / DEMO / LIVE environment model
+- MT5 demo account capability discovery
+- Demo paper/order-execution boundary
 - Out-of-sample evaluation
 - Walk-forward testing
 - Monte Carlo analysis
 - Paper trading
 - Execution-quality measurements
+- Broker-aware execution simulator
 
 ## V2 — Statistical Scoring
 - Feature redundancy analysis
@@ -45,4 +49,4 @@
 
 ## Live deployment gate
 
-No autonomous live execution until the full validation pipeline and explicit risk controls have passed review.
+No autonomous live execution until the full validation pipeline and explicit risk controls have passed review. Live remains locked in V1/V1.5 even when an MT5 live account is connected.

@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
+from .environment import AccountCapabilities, TradingEnvironment
 from .market import Candle
 from .models import AccountSnapshot, BrokerSpec, ExecutionSnapshot
 
@@ -64,6 +65,34 @@ def account_snapshot_from_mt5(account_info: Any) -> AccountSnapshot:
         balance=_decimal(account_info.balance),
         equity=_decimal(account_info.equity),
         free_margin=_decimal(account_info.margin_free),
+    )
+
+
+
+def account_capabilities_from_mt5(
+    account_info: Any,
+    *,
+    environment: TradingEnvironment,
+    connected: bool,
+    connection_healthy: bool,
+    execution_enabled: bool = False,
+    symbol: str = "XAUUSD",
+    symbol_available: bool = True,
+) -> AccountCapabilities:
+    """Map MT5 account state into explicit environment capabilities.
+
+    The environment is caller-supplied on purpose. Balance/equity cannot be
+    used to infer whether an account is demo or live.
+    """
+    return AccountCapabilities(
+        environment=environment,
+        connected=connected,
+        connection_healthy=connection_healthy,
+        trading_allowed=bool(getattr(account_info, "trade_allowed", False)),
+        execution_enabled=execution_enabled,
+        symbol_available=symbol_available,
+        symbol=symbol,
+        server=getattr(account_info, "server", None),
     )
 
 

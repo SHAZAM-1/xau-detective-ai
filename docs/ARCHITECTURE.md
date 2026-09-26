@@ -5,6 +5,8 @@
 ```
 Market/Data Ingestion
         ↓
+Environment & Capability Gate
+        ↓
 Data Quality Checks
         ↓
 Feature Engineering
@@ -21,6 +23,27 @@ Decision Report
         ↓
 Immutable Decision Log
 ```
+
+## Environment and capability boundary
+
+The system has three explicit environments:
+
+- **RESEARCH** — historical/backtest analysis only; no order APIs.
+- **DEMO** — MT5 demo connectivity is supported. Analysis can use live broker prices/specifications, and order execution is only permitted after an explicit execution opt-in plus all connection, trading, symbol, risk, and margin gates.
+- **LIVE** — connected-live-account support is architecturally represented, but autonomous live execution remains locked in V1.
+
+The environment is never inferred from account balance, equity, or account size. The caller must explicitly select the environment.
+
+The capability layer records:
+
+- connection state and health
+- whether account trading is allowed
+- whether execution was explicitly enabled
+- symbol availability
+- symbol identity
+- broker/server identity when available
+
+This separates **connected to a demo account** from **authorized to send orders**.
 
 ## Major modules
 
