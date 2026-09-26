@@ -20,6 +20,7 @@ from .mt5_adapter import (
 from .mt5_execution import MetaTrader5DemoGateway
 from .mt5_session import MT5SessionMonitor
 from .pipeline import MarketAnalysis
+from .trade_journal import InMemoryTradeJournal, TradeJournal, journal_entry_from_intent
 from .trading_profile import TradingProfile
 
 
@@ -41,6 +42,7 @@ class MT5DemoTradingService:
         symbol: str = "XAUUSD",
         execution_enabled: bool = False,
         magic: int = 260926,
+        journal: TradeJournal | None = None,
     ) -> None:
         self._mt5 = mt5_module
         self._symbol = symbol
@@ -50,6 +52,7 @@ class MT5DemoTradingService:
             MetaTrader5DemoGateway(mt5_module, magic=magic)
         )
         self._execution_gate = BrokerExecutionGate()
+        self._journal = journal or InMemoryTradeJournal()
 
     @property
     def session(self) -> MT5SessionMonitor:
@@ -164,5 +167,14 @@ class MT5DemoTradingService:
             capabilities=state.capabilities,
             profile=profile,
             intent=intent,
+        )
+        self._journal.append(
+            journal_entry_from_intent(
+                intent=intent,
+                status="SUBMITTED" if order.submitted else "REJECTED",
+                reason=order.reason,
+                order_id=order.order_id,
+                timestamp=now,
+            )
         )
         return DemoCycleResult(changed, analysis, order, order.reason)
