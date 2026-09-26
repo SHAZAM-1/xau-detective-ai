@@ -128,11 +128,13 @@ If the requested position cannot be executed while respecting the configured ris
 - [x] Evidence ledger and conflict gate
 - [x] Append-only closed-trade memory
 - [x] Learning statistics and postmortem lesson extraction
+- [x] Event-driven backtest engine with spread/commission/slippage modeling
+- [x] Session context features
+- [x] Liquidity reference features
 - [x] GitHub Actions test/lint workflow
+- [x] Project-wide health check with commit impact reporting
 
 ### Next
-- [ ] Backtest engine with realistic spread/commission/slippage
-- [ ] Session and liquidity features
 - [ ] Historical feature/outcome dataset builder
 - [ ] Walk-forward evaluation
 - [ ] Calibrated statistical scoring
