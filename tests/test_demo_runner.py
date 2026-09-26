@@ -7,18 +7,18 @@ from xau_detective.trading_profile import TradingProfile
 
 
 def _fixtures():
-    account = AccountSnapshot(Decimal("1000"), Decimal("1000"), Decimal("900"))
+    account = AccountSnapshot(Decimal(1000), Decimal(1000), Decimal(900))
     broker = BrokerSpec(
         symbol="XAUUSD",
-        contract_size=Decimal("100"),
+        contract_size=Decimal(100),
         volume_min=Decimal("0.01"),
-        volume_max=Decimal("100"),
+        volume_max=Decimal(100),
         volume_step=Decimal("0.01"),
         tick_size=Decimal("0.01"),
-        tick_value=Decimal("1"),
+        tick_value=Decimal(1),
         point=Decimal("0.01"),
     )
-    execution = ExecutionSnapshot(Decimal("3000"), Decimal("3000.10"))
+    execution = ExecutionSnapshot(Decimal(3000), Decimal("3000.10"))
     capabilities = AccountCapabilities(
         environment=TradingEnvironment.DEMO,
         connected=True,
@@ -58,5 +58,5 @@ def test_demo_runner_stops_when_execution_capability_is_missing():
 
 
 def test_demo_risk_budget_uses_equity():
-    account = AccountSnapshot(Decimal("900"), Decimal("1000"), Decimal("800"))
-    assert calculate_demo_risk_budget(account, Decimal("0.01")) == Decimal("10")
+    account = AccountSnapshot(Decimal(900), Decimal(1000), Decimal(800))
+    assert calculate_demo_risk_budget(account, Decimal("0.01")) == Decimal(10)
