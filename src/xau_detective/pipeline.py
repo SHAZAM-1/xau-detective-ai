@@ -16,7 +16,7 @@ from .evidence_gate import decide_from_evidence
 from .features import compute_features
 from .liquidity import analyze_liquidity
 from .models import AccountSnapshot, BrokerSpec, Decision, Direction, RiskRequest, Scenario
-from .regime import classify_regime
+from .regime import TrendState, classify_regime
 from .risk import calculate_position_size
 from .session import classify_session
 from .structure import analyze_structure
@@ -85,11 +85,7 @@ def analyze_market(
     now: datetime | None = None,
     config: AnalysisConfig = AnalysisConfig(),
 ) -> MarketAnalysis:
-    """Analyze closed XAUUSD candles and return an auditable decision.
-
-    Inputs must already be normalized OHLC candles. The current forming candle
-    should be excluded by the ingestion layer before calling this function.
-    """
+    """Analyze closed XAUUSD candles and return an auditable decision."""
     timestamp = now or datetime.now(timezone.utc)
     session = classify_session(timestamp).label
 
@@ -112,16 +108,15 @@ def analyze_market(
     if not m5 or not m15 or not h4 or not h1:
         return _no_trade("INSUFFICIENT_DATA", timestamp, session=session)
 
-    h4_features = compute_features(h4)
     h4_regime = classify_regime(h4)
     h1_structure = analyze_structure(h1)
     m15_features = compute_features(m15, ema_fast_period=9, ema_slow_period=21)
     m15_liquidity = analyze_liquidity(m15)
 
     direction = Direction.NO_TRADE
-    if h4_regime.trend.value == "UP" and h1_structure.direction is Direction.BUY:
+    if h4_regime.trend is TrendState.UP and h1_structure.direction is Direction.BUY:
         direction = Direction.BUY
-    elif h4_regime.trend.value == "DOWN" and h1_structure.direction is Direction.SELL:
+    elif h4_regime.trend is TrendState.DOWN and h1_structure.direction is Direction.SELL:
         direction = Direction.SELL
 
     if direction is Direction.NO_TRADE:
@@ -136,8 +131,7 @@ def analyze_market(
         return _no_trade("M15_MOMENTUM_CONFLICT", timestamp, session=session)
 
     entry = m5[-1].close
-    atr_value = m15_features.atr
-    stop_distance = atr_value * config.stop_atr_multiple
+    stop_distance = m15_features.atr * config.stop_atr_multiple
     if stop_distance <= 0:
         return _no_trade("INVALID_STOP_DISTANCE", timestamp, session=session, entry=entry)
 
@@ -148,11 +142,9 @@ def analyze_market(
         stop_loss = entry + stop_distance
         take_profit = entry - stop_distance * config.min_reward_risk
 
-    reward_risk = config.min_reward_risk
-    regime = h4_regime
     ledger = build_evidence(
         direction,
-        regime,
+        h4_regime,
         h1_structure,
         momentum=m15_features.momentum,
         min_independent_families=config.min_evidence_families,
@@ -165,9 +157,8 @@ def analyze_market(
     setup_score = min(
         100,
         ledger.independent_evidence_count * 25
-        + (15 if reward_risk >= config.min_reward_risk else 0)
-        + (10 if session != "OFF_SESSION" else 0)
-        + (5 if h4_features.atr is not None else 0),
+        + (15 if config.min_reward_risk >= Decimal("2.0") else 0)
+        + (10 if session != "OFF_SESSION" else 0),
     )
 
     risk = calculate_position_size(
@@ -203,5 +194,5 @@ def analyze_market(
         tuple(ledger.supporting),
         tuple(ledger.contradicting),
         tuple(ledger.warnings),
-        reward_risk,
+        config.min_reward_risk,
     )
