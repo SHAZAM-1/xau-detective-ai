@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Repository-wide static health check for XAU Detective AI."""
 from __future__ import annotations
 
