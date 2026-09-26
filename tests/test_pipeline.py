@@ -12,7 +12,7 @@ def test_pipeline_rejects_bad_data_before_analysis():
         h1=(),
         m15=(),
         m5=(),
-        account=AccountSnapshot(Decimal(20), Decimal(20), Decimal("20")),
+        account=AccountSnapshot(Decimal(20), Decimal(20), Decimal(20)),
         broker=BrokerSpec(
             symbol="XAUUSD",
             contract_size=Decimal(100),
