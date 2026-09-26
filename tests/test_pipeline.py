@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 
 from xau_detective.models import AccountSnapshot, BrokerSpec, Direction
@@ -12,18 +12,18 @@ def test_pipeline_rejects_bad_data_before_analysis():
         h1=(),
         m15=(),
         m5=(),
-        account=AccountSnapshot(Decimal("20"), Decimal("20"), Decimal("20")),
+        account=AccountSnapshot(Decimal(20), Decimal("20"), Decimal("20")),
         broker=BrokerSpec(
             symbol="XAUUSD",
-            contract_size=Decimal("100"),
+            contract_size=Decimal(100),
             volume_min=Decimal("0.01"),
             volume_max=Decimal("100"),
             volume_step=Decimal("0.01"),
             tick_size=Decimal("0.01"),
-            tick_value=Decimal("1"),
+            tick_value=Decimal(1),
             point=Decimal("0.01"),
         ),
-        now=datetime(2026, 9, 26, 14, 0, tzinfo=timezone.utc),
+        now=datetime(2026, 9, 26, 14, 0, tzinfo=UTC),
     )
 
     assert result.decision.direction is Direction.NO_TRADE
