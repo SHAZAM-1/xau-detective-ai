@@ -34,7 +34,16 @@ def _fixtures():
 
 def test_demo_runner_stops_when_execution_capability_is_missing():
     account, broker, execution, capabilities = _fixtures()
-    blocked = AccountCapabilities(**{**capabilities.__dict__, "execution_enabled": False})
+    blocked = AccountCapabilities(
+        environment=capabilities.environment,
+        connected=capabilities.connected,
+        connection_healthy=capabilities.connection_healthy,
+        trading_allowed=capabilities.trading_allowed,
+        execution_enabled=False,
+        symbol_available=capabilities.symbol_available,
+        symbol=capabilities.symbol,
+        server=capabilities.server,
+    )
     result = build_demo_proposal(
         capabilities=blocked,
         account=account,
