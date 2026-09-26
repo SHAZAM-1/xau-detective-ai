@@ -29,6 +29,7 @@ class BrokerExecutionGate:
         intent: TradeIntent,
         max_spread: Decimal | None = None,
         max_slippage: Decimal | None = None,
+        estimated_slippage: Decimal = Decimal(0),
     ) -> ExecutionGateResult:
         if capabilities.environment is not TradingEnvironment.DEMO:
             return ExecutionGateResult(False, "LIVE_OR_NON_DEMO_ACCOUNT")
@@ -72,20 +73,19 @@ class BrokerExecutionGate:
             return ExecutionGateResult(False, "INVALID_MARKET_PRICE")
 
         expected_entry = ask if intent.direction is Direction.BUY else bid
-        price_tolerance = Decimal(str(getattr(symbol_info, "point", "0"))) * Decimal("2")
+        point = Decimal(str(getattr(symbol_info, "point", "0")))
+        if point <= 0:
+            return ExecutionGateResult(False, "INVALID_SYMBOL_POINT")
+        price_tolerance = point * Decimal("2")
         if abs(intent.entry - expected_entry) > price_tolerance:
             return ExecutionGateResult(False, "STALE_OR_WRONG_SIDE_ENTRY")
 
         spread = ask - bid
         if max_spread is not None and spread > max_spread:
             return ExecutionGateResult(False, "SPREAD_LIMIT_EXCEEDED")
+        if max_slippage is not None and estimated_slippage > max_slippage:
+            return ExecutionGateResult(False, "SLIPPAGE_LIMIT_EXCEEDED")
 
-        if max_slippage is not None and intent.risk.executable:
-            if Decimal(str(intent.risk.estimated_loss)) < 0:
-                return ExecutionGateResult(False, "INVALID_RISK_RESULT")
-            # Slippage is measured/limited by the execution snapshot upstream.
-            # This gate does not invent a fill estimate.
-        
         if intent.direction is Direction.BUY:
             if not (intent.stop_loss < intent.entry < intent.take_profit):
                 return ExecutionGateResult(False, "INVALID_BUY_SL_TP")
@@ -93,12 +93,9 @@ class BrokerExecutionGate:
             if not (intent.take_profit < intent.entry < intent.stop_loss):
                 return ExecutionGateResult(False, "INVALID_SELL_SL_TP")
 
-        point = Decimal(str(getattr(symbol_info, "point", "0")))
         stops_level = Decimal(str(getattr(symbol_info, "trade_stops_level", "0")))
         freeze_level = Decimal(str(getattr(symbol_info, "trade_freeze_level", "0")))
         min_distance = max(stops_level, freeze_level) * point
-        if point <= 0:
-            return ExecutionGateResult(False, "INVALID_SYMBOL_POINT")
 
         if intent.direction is Direction.BUY:
             if intent.entry - intent.stop_loss < min_distance:
@@ -117,8 +114,17 @@ class BrokerExecutionGate:
 
         calc_margin = getattr(mt5, "order_calc_margin", None)
         if callable(calc_margin):
-            order_type = mt5.ORDER_TYPE_BUY if intent.direction is Direction.BUY else mt5.ORDER_TYPE_SELL
-            margin = calc_margin(order_type, intent.symbol, float(intent.volume), float(intent.entry))
+            order_type = (
+                mt5.ORDER_TYPE_BUY
+                if intent.direction is Direction.BUY
+                else mt5.ORDER_TYPE_SELL
+            )
+            margin = calc_margin(
+                order_type,
+                intent.symbol,
+                float(intent.volume),
+                float(intent.entry),
+            )
             if margin is None:
                 return ExecutionGateResult(False, "MARGIN_CALCULATION_FAILED")
             if Decimal(str(margin)) >= free_margin:
