@@ -29,9 +29,9 @@ def _capabilities(environment=TradingEnvironment.DEMO, enabled=True, symbol=True
 def _intent(source=TradeSource.BOT_SUGGESTION, key="order-1", executable=True):
     return TradeIntent(
         symbol="XAUUSD", direction=Direction.BUY, volume=Decimal("0.01"),
-        entry=Decimal("3000"), stop_loss=Decimal("2990"), take_profit=Decimal("3020"),
+        entry=Decimal(3000), stop_loss=Decimal(2990), take_profit=Decimal(3020),
         source=source, idempotency_key=key,
-        risk=RiskResult(executable, Decimal("0.01"), Decimal("10"), Decimal("10"), "OK"),
+        risk=RiskResult(executable, Decimal("0.01"), Decimal(10), Decimal(10), "OK"),
     )
 
 
@@ -84,19 +84,19 @@ def test_successful_demo_order_reaches_gateway():
 
 
 def test_user_defined_trade_requires_suggestions_off():
-    risk = RiskResult(True, Decimal("0.01"), Decimal("10"), Decimal("10"), "OK")
+    risk = RiskResult(True, Decimal("0.01"), Decimal(10), Decimal(10), "OK")
     profile = TradingProfile(bot_suggestions_enabled=False)
     intent = build_user_defined_intent(
         symbol="XAUUSD", direction=Direction.SELL, volume=Decimal("0.01"),
-        entry=Decimal("3000"), stop_loss=Decimal("3010"), take_profit=Decimal("2980"),
+        entry=Decimal(3000), stop_loss=Decimal(3010), take_profit=Decimal(2980),
         risk=risk, idempotency_key="user-1", profile=profile)
     assert intent.source is TradeSource.USER_DEFINED
 
 
 def test_user_defined_trade_is_not_allowed_when_suggestions_are_on():
-    risk = RiskResult(True, Decimal("0.01"), Decimal("10"), Decimal("10"), "OK")
+    risk = RiskResult(True, Decimal("0.01"), Decimal(10), Decimal(10), "OK")
     with pytest.raises(ValueError, match="SUGGESTIONS_OFF"):
         build_user_defined_intent(
             symbol="XAUUSD", direction=Direction.BUY, volume=Decimal("0.01"),
-            entry=Decimal("3000"), stop_loss=Decimal("2990"), take_profit=Decimal("3020"),
+            entry=Decimal(3000), stop_loss=Decimal(2990), take_profit=Decimal(3020),
             risk=risk, idempotency_key="user-2", profile=TradingProfile())
