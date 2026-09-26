@@ -66,13 +66,30 @@ class MetaTrader5DemoGateway:
         info = self._mt5.symbol_info(symbol)
         if info is None:
             raise ValueError("SYMBOL_INFO_UNAVAILABLE")
-        mode = getattr(info, "filling_mode", None)
-        if mode is None:
-            return getattr(self._mt5, "ORDER_FILLING_IOC", 1)
-        return int(mode)
+        flags = int(getattr(info, "filling_mode", 0) or 0)
+        fok = getattr(self._mt5, "ORDER_FILLING_FOK", 0)
+        ioc = getattr(self._mt5, "ORDER_FILLING_IOC", 1)
+        if flags & int(fok):
+            return int(fok)
+        if flags & int(ioc):
+            return int(ioc)
+        return int(ioc)
 
     def send_order(self, intent: TradeIntent) -> str:
         request = self.build_request(intent)
+        order_check = getattr(self._mt5, "order_check", None)
+        if callable(order_check):
+            check = order_check(request)
+            if check is None:
+                raise RuntimeError("MT5_ORDER_CHECK_RETURNED_NONE")
+            check_retcode = int(getattr(check, "retcode", -1))
+            check_done = getattr(self._mt5, "TRADE_RETCODE_DONE", 10009)
+            if check_retcode not in {int(check_done), 0}:
+                comment = str(getattr(check, "comment", "MT5_ORDER_CHECK_REJECTED"))
+                raise RuntimeError(
+                    f"MT5_ORDER_CHECK_REJECTED:{check_retcode}:{comment}"
+                )
+
         result = self._mt5.order_send(request)
         if result is None:
             raise RuntimeError("MT5_ORDER_SEND_RETURNED_NONE")
