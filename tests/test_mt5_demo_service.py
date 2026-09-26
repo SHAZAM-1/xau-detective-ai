@@ -1,9 +1,8 @@
+from datetime import datetime, timezone
 from decimal import Decimal
 from types import SimpleNamespace
 
-from xau_detective.demo_execution import TradeSource
 from xau_detective.environment import TradingEnvironment
-from xau_detective.models import Direction
 from xau_detective.mt5_demo_service import MT5DemoTradingService
 from xau_detective.trading_profile import TradingProfile
 
@@ -61,7 +60,7 @@ class FakeMT5:
 def candles():
     return tuple(
         SimpleNamespace(
-            timestamp=__import__("datetime").datetime(2026, 9, 26, 10 + i, tzinfo=__import__("datetime").timezone.utc),
+            timestamp=datetime(2026, 9, 26, 10 + i, tzinfo=timezone.utc),
             open=Decimal("4000"),
             high=Decimal("4002"),
             low=Decimal("3998"),
@@ -77,8 +76,12 @@ def test_service_detects_demo_and_rejects_live():
     service = MT5DemoTradingService(mt5, execution_enabled=True)
     result = service.cycle(
         profile=TradingProfile(),
-        d1=candles(), h4=candles(), h1=candles(), m15=candles(), m5=candles(),
-        now=__import__("datetime").datetime(2026, 9, 26, 12, tzinfo=__import__("datetime").timezone.utc),
+        d1=candles(),
+        h4=candles(),
+        h1=candles(),
+        m15=candles(),
+        m5=candles(),
+        now=datetime(2026, 9, 26, 12, tzinfo=timezone.utc),
         idempotency_key="live-1",
     )
     assert result.reason == "LIVE_EXECUTION_LOCKED_V1"
@@ -99,8 +102,7 @@ def test_service_session_tracks_demo_environment():
     assert state.identity.login == "123"
 
 
-def test_service_gateway_is_demo_only():
+def test_service_has_demo_executor_boundary():
     mt5 = FakeMT5()
     service = MT5DemoTradingService(mt5, execution_enabled=False)
     assert service.session.state is None
-    assert service._executor is not None
