@@ -4,8 +4,8 @@ import pytest
 
 from xau_detective.demo_execution import (
     DemoOrderExecutor,
-    TradeSource,
     TradeIntent,
+    TradeSource,
     build_user_defined_intent,
 )
 from xau_detective.environment import AccountCapabilities, TradingEnvironment
