@@ -145,7 +145,7 @@ def audit_architecture(findings: list[tuple[str, str]]) -> None:
     elif "a.equity * request.risk_fraction" in risk_text:
         findings.append(("PASS", "Risk sizing uses account equity."))
 
-    if "d1=" in pipeline_text and "compute_features(d1" not in pipeline_text:
+    if "(Timeframe.D1, d1)" in pipeline_text and "compute_features(d1" not in pipeline_text:
         findings.append(("WARN", "D1 context is validated but does not currently contribute evidence or direction."))
     if "entry = m5[-1].close" in pipeline_text:
         findings.append(("WARN", "M5 currently supplies the entry price but no independent M5 confirmation family."))
@@ -269,7 +269,7 @@ def main() -> int:
         print(f"- [{status}] {message}")
     print()
     print("## Scope")
-    print("Syntax, internal imports, import cycles, test mapping, CI configuration, dependency pinning, documentation drift, technical-debt markers, and commit-to-commit impact.")
+    print("Syntax, imports, architecture contracts, test mapping, CI configuration, dependency pinning, documentation drift, technical debt, and commit-to-commit impact.")
     print()
     print("Read-only: this checker never auto-fixes source code or CI.")
 
