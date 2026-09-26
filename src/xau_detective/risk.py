@@ -1,7 +1,10 @@
 """Capital-aware position sizing and hard risk gates."""
 from __future__ import annotations
+
 from decimal import ROUND_DOWN, Decimal
+
 from .models import RiskRequest, RiskResult
+
 
 def _floor_to_step(value: Decimal, step: Decimal) -> Decimal:
     if step <= 0:
@@ -9,8 +12,10 @@ def _floor_to_step(value: Decimal, step: Decimal) -> Decimal:
     units = (value / step).to_integral_value(rounding=ROUND_DOWN)
     return units * step
 
+
 def _veto(reason: str, risk_amount: Decimal = Decimal(0)) -> RiskResult:
     return RiskResult(False, Decimal(0), risk_amount, Decimal(0), reason)
+
 
 def calculate_position_size(request: RiskRequest) -> RiskResult:
     b = request.broker
@@ -67,11 +72,12 @@ def calculate_position_size(request: RiskRequest) -> RiskResult:
         if volume * margin_per_lot > a.free_margin:
             return RiskResult(False, Decimal(0), risk_budget, estimated_loss, "INSUFFICIENT_FREE_MARGIN")
     if request.daily_risk is not None:
-        if request.max_daily_loss_fraction is None or not (Decimal(0) < request.max_daily_loss_fraction <= Decimal(1)):
+        limit = request.max_daily_loss_fraction
+        if limit is None or not (Decimal(0) < limit <= Decimal(1)):
             return RiskResult(False, Decimal(0), risk_budget, estimated_loss, "INVALID_DAILY_LOSS_LIMIT")
         current_daily_pnl = request.daily_risk.realized_pnl_today + request.daily_risk.unrealized_pnl_today
         projected_daily_loss = max(Decimal(0), -current_daily_pnl) + estimated_loss
-        daily_loss_limit = a.equity * request.max_daily_loss_fraction
+        daily_loss_limit = a.equity * limit
         if projected_daily_loss > daily_loss_limit:
             return RiskResult(False, Decimal(0), risk_budget, estimated_loss, "DAILY_LOSS_LIMIT")
     return RiskResult(True, volume, risk_budget, estimated_loss, "OK")
