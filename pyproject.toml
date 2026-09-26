@@ -11,8 +11,8 @@ dependencies = []
 
 [project.optional-dependencies]
 dev = [
-  "pytest>=8.0",
-  "ruff>=0.8",
+  "pytest>=8.0,<10",
+  "ruff==0.16.9",
 ]
 mt5 = [
   "MetaTrader5>=5.0.0",
