@@ -12,5 +12,5 @@ def test_execution_snapshot_derives_spread():
 
 
 def test_daily_risk_state_defaults_unrealized_pnl_to_zero():
-    state = DailyRiskState(realized_pnl_today=Decimal("-2"))
+    state = DailyRiskState(realized_pnl_today=Decimal(-2))
     assert state.unrealized_pnl_today == Decimal(0)
