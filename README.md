@@ -19,6 +19,8 @@ It is designed for robustness and auditability, not guaranteed returns.
 - Capital-aware position sizing from actual broker specifications.
 - Hard risk and execution vetoes.
 - No Martingale, Grid, or averaging down.
+- Explicit RESEARCH / DEMO / LIVE environment model.
+- Demo-account connectivity can be enabled separately from order execution.
 - No autonomous live execution in V1.
 - Backtest, out-of-sample, walk-forward and paper validation before deployment.
 - Every decision and every closed trade should be auditable.
@@ -133,6 +135,12 @@ If the requested position cannot be executed while respecting the configured ris
 - [x] Liquidity reference features
 - [x] GitHub Actions test/lint workflow
 - [x] Project-wide health check with commit impact reporting
+
+### Implemented environment boundary
+- [x] Explicit RESEARCH / DEMO / LIVE environment model
+- [x] MT5 account capability mapping without inferring demo/live from balance
+- [x] Demo execution requires explicit enablement and healthy account/symbol gates
+- [x] Live execution remains locked by the V1 policy
 
 ### Next
 - [ ] Historical feature/outcome dataset builder
