@@ -45,7 +45,7 @@ class AnalysisConfig:
     score_session_weight: int = 10
 
     @classmethod
-    def from_profile(cls, profile: TradingProfile, *, safety_margin: Decimal = Decimal("0.90"), max_daily_loss: Decimal | None = Decimal("0.02")) -> "AnalysisConfig":
+    def from_profile(cls, profile: TradingProfile, *, safety_margin: Decimal = Decimal("0.90"), max_daily_loss: Decimal | None = Decimal("0.02")) -> AnalysisConfig:
         """Build analysis settings from a user's preferences.
 
         Profile settings never alter hard safety gates or live-execution policy.
