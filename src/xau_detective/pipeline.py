@@ -25,6 +25,7 @@ from .risk import calculate_position_size
 from .session import classify_session
 from .structure import analyze_structure
 from .timeframes import Timeframe, expected_interval
+from .trading_profile import TradingProfile
 
 
 @dataclass(frozen=True)
@@ -42,6 +43,23 @@ class AnalysisConfig:
     score_evidence_weight: int = 25
     score_reward_risk_weight: int = 15
     score_session_weight: int = 10
+
+    @classmethod
+    def from_profile(cls, profile: TradingProfile, *, safety_margin: Decimal = Decimal("0.90"), max_daily_loss: Decimal | None = Decimal("0.02")) -> "AnalysisConfig":
+        """Build analysis settings from a user's preferences.
+
+        Profile settings never alter hard safety gates or live-execution policy.
+        """
+        profile.validate()
+        return cls(
+            risk_fraction=profile.risk_fraction,
+            safety_margin=safety_margin,
+            max_daily_loss=max_daily_loss,
+            max_spread=profile.max_spread,
+            max_slippage=profile.max_slippage,
+            min_reward_risk=profile.min_reward_risk,
+            stop_atr_multiple=profile.stop_atr_multiple,
+        )
 
 
 @dataclass(frozen=True)
