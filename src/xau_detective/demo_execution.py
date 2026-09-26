@@ -6,7 +6,12 @@ from decimal import Decimal
 from enum import Enum
 from typing import Protocol
 
-from .environment import AccountCapabilities, TradingEnvironment, can_execute_orders, environment_reason
+from .environment import (
+    AccountCapabilities,
+    TradingEnvironment,
+    can_execute_orders,
+    environment_reason,
+)
 from .models import Direction, RiskResult
 from .trading_profile import TradingProfile
 
