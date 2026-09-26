@@ -223,6 +223,8 @@ def main() -> int:
             if "pytest" in text:
                 findings.append(("PASS", f"{path.relative_to(ROOT)} includes pytest."))
 
+    audit_architecture(findings)
+
     readme = ROOT / "README.md"
     if not readme.exists():
         findings.append(("FAIL", "Missing README.md"))
