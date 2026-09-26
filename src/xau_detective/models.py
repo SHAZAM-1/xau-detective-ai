@@ -1,13 +1,16 @@
 """Core domain models used by the deterministic trading engine."""
 from __future__ import annotations
+
 from dataclasses import dataclass
 from decimal import Decimal
 from enum import Enum
+
 
 class Direction(str, Enum):
     BUY = "BUY"
     SELL = "SELL"
     NO_TRADE = "NO_TRADE"
+
 
 @dataclass(frozen=True)
 class BrokerSpec:
@@ -21,6 +24,7 @@ class BrokerSpec:
     point: Decimal
     min_stop_distance: Decimal = Decimal(0)
 
+
 @dataclass(frozen=True)
 class ExecutionSnapshot:
     bid: Decimal
@@ -32,16 +36,19 @@ class ExecutionSnapshot:
     def spread(self) -> Decimal:
         return self.ask - self.bid
 
+
 @dataclass(frozen=True)
 class DailyRiskState:
     realized_pnl_today: Decimal
     unrealized_pnl_today: Decimal = Decimal(0)
+
 
 @dataclass(frozen=True)
 class AccountSnapshot:
     balance: Decimal
     equity: Decimal
     free_margin: Decimal
+
 
 @dataclass(frozen=True)
 class RiskRequest:
@@ -58,6 +65,7 @@ class RiskRequest:
     daily_risk: DailyRiskState | None = None
     max_daily_loss_fraction: Decimal | None = None
 
+
 @dataclass(frozen=True)
 class RiskResult:
     executable: bool
@@ -66,12 +74,14 @@ class RiskResult:
     estimated_loss: Decimal
     reason: str
 
+
 @dataclass(frozen=True)
 class Scenario:
     direction: Direction
     evidence: tuple[str, ...]
     invalidation: str
     target: Decimal | None = None
+
 
 @dataclass(frozen=True)
 class Decision:
