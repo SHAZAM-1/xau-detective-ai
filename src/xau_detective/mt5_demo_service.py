@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from .broker_execution_gate import BrokerExecutionGate
 from .demo_execution import DemoOrderExecutor, DemoOrderResult, TradeIntent, TradeSource
 from .environment import TradingEnvironment
 from .mt5_adapter import (
@@ -48,6 +49,7 @@ class MT5DemoTradingService:
         self._executor = DemoOrderExecutor(
             MetaTrader5DemoGateway(mt5_module, magic=magic)
         )
+        self._execution_gate = BrokerExecutionGate()
 
     @property
     def session(self) -> MT5SessionMonitor:
@@ -71,7 +73,9 @@ class MT5DemoTradingService:
             return DemoCycleResult(False, None, None, "MT5_ACCOUNT_INFO_UNAVAILABLE")
 
         terminal_info = getattr(self._mt5, "terminal_info", lambda: None)()
-        connected = terminal_info is not None
+        connected = terminal_info is not None and bool(
+            getattr(terminal_info, "connected", True)
+        )
         session_before = self._session.state.identity if self._session.state else None
 
         symbol_info = self._mt5.symbol_info(self._symbol)
@@ -98,32 +102,35 @@ class MT5DemoTradingService:
         broker = broker_spec_from_mt5(symbol_info)
         execution = execution_snapshot_from_mt5(tick)
 
-        from .demo_runner import build_demo_proposal
-
-        proposal = build_demo_proposal(
-            capabilities=state.capabilities,
-            account=account,
-            broker=broker,
-            execution=execution,
-            profile=profile,
-            d1=d1,
-            h4=h4,
-            h1=h1,
-            m15=m15,
-            m5=m5,
-            now=now,
-        )
-        if not proposal.allowed or proposal.analysis is None:
-            return DemoCycleResult(changed, proposal.analysis, None, proposal.reason)
-
-        analysis = proposal.analysis
-        decision = analysis.decision
-        if decision.scenario is None or decision.risk is None:
-            return DemoCycleResult(changed, analysis, None, "NO_EXECUTABLE_SCENARIO")
+        analysis = None
 
         if user_intent is None:
+            from .demo_runner import build_demo_proposal
+
+            proposal = build_demo_proposal(
+                capabilities=state.capabilities,
+                account=account,
+                broker=broker,
+                execution=execution,
+                profile=profile,
+                d1=d1,
+                h4=h4,
+                h1=h1,
+                m15=m15,
+                m5=m5,
+                now=now,
+            )
+            if not proposal.allowed or proposal.analysis is None:
+                return DemoCycleResult(changed, proposal.analysis, None, proposal.reason)
+
+            analysis = proposal.analysis
+            decision = analysis.decision
+            if decision.scenario is None or decision.risk is None:
+                return DemoCycleResult(changed, analysis, None, "NO_EXECUTABLE_SCENARIO")
+            if analysis.stop_loss is None or analysis.take_profit is None:
+                return DemoCycleResult(changed, analysis, None, "ANALYSIS_MISSING_EXECUTION_LEVELS")
+
             direction = decision.direction
-            source = TradeSource.BOT_SUGGESTION
             intent = TradeIntent(
                 symbol=self._symbol,
                 direction=direction,
@@ -131,12 +138,27 @@ class MT5DemoTradingService:
                 entry=execution.ask if direction.value == "BUY" else execution.bid,
                 stop_loss=analysis.stop_loss,
                 take_profit=analysis.take_profit,
-                source=source,
+                source=TradeSource.BOT_SUGGESTION,
                 idempotency_key=idempotency_key,
                 risk=decision.risk,
             )
         else:
+            if profile.bot_suggestions_enabled:
+                return DemoCycleResult(changed, None, None, "USER_DEFINED_REQUIRES_SUGGESTIONS_OFF")
             intent = user_intent
+
+        gate = self._execution_gate.validate(
+            mt5=self._mt5,
+            capabilities=state.capabilities,
+            account_info=account_info,
+            symbol_info=symbol_info,
+            intent=intent,
+            max_spread=profile.max_spread,
+            max_slippage=profile.max_slippage,
+            estimated_slippage=execution.estimated_slippage,
+        )
+        if not gate.allowed:
+            return DemoCycleResult(changed, analysis, None, gate.reason)
 
         order = self._executor.execute(
             capabilities=state.capabilities,
