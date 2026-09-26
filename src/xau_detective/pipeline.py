@@ -7,7 +7,7 @@ It does not place orders.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 
 from .data_quality import validate_candles
@@ -83,10 +83,10 @@ def analyze_market(
     account: AccountSnapshot,
     broker: BrokerSpec,
     now: datetime | None = None,
-    config: AnalysisConfig = AnalysisConfig(),
+    config: AnalysisConfig | None = None,
 ) -> MarketAnalysis:
-    """Analyze closed XAUUSD candles and return an auditable decision."""
-    timestamp = now or datetime.now(timezone.utc)
+    """Analyze closed XAUUSD candles and return an auditable decision."""\n    config = config or AnalysisConfig()
+    timestamp = now or datetime.now(UTC)
     session = classify_session(timestamp).label
 
     datasets = (
