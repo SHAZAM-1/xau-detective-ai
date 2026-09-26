@@ -1,8 +1,10 @@
 """Timeframe labels and closed-candle discipline."""
 from __future__ import annotations
+
 from dataclasses import dataclass
 from datetime import timedelta
 from enum import Enum
+
 
 class Timeframe(str, Enum):
     D1 = "D1"
@@ -10,6 +12,7 @@ class Timeframe(str, Enum):
     H1 = "H1"
     M15 = "M15"
     M5 = "M5"
+
 
 _INTERVALS = {
     Timeframe.M5: timedelta(minutes=5),
@@ -19,8 +22,10 @@ _INTERVALS = {
     Timeframe.D1: timedelta(days=1),
 }
 
+
 def expected_interval(timeframe: Timeframe) -> timedelta:
     return _INTERVALS[timeframe]
+
 
 @dataclass(frozen=True)
 class TimeframeMap:
