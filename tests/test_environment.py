@@ -11,13 +11,13 @@ from xau_detective.mt5_adapter import account_capabilities_from_mt5
 
 def capability(**overrides):
     values = {
-        environment=TradingEnvironment.DEMO,
-        connected=True,
-        connection_healthy=True,
-        trading_allowed=True,
-        execution_enabled=True,
-        symbol_available=True,
-        symbol="XAUUSD",
+        "environment": TradingEnvironment.DEMO,
+        "connected": True,
+        "connection_healthy": True,
+        "trading_allowed": True,
+        "execution_enabled": True,
+        "symbol_available": True,
+        "symbol": "XAUUSD",
     }
     values.update(overrides)
     return AccountCapabilities(**values)
