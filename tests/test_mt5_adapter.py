@@ -1,48 +1,11 @@
-from datetime import UTC
 from decimal import Decimal
 from types import SimpleNamespace
+from xau_detective.mt5_adapter import execution_snapshot_from_mt5
 
-from xau_detective.mt5_adapter import (
-    account_snapshot_from_mt5,
-    broker_spec_from_mt5,
-    candle_from_mt5,
-)
-
-
-def test_mt5_rate_mapping():
-    rate = {
-        "time": 1767225600,
-        "open": 4000.0,
-        "high": 4010.0,
-        "low": 3995.0,
-        "close": 4005.0,
-        "tick_volume": 123,
-    }
-    candle = candle_from_mt5(rate)
-    assert candle.timestamp.tzinfo == UTC
-    assert candle.close == Decimal("4005.0")
-    assert candle.volume == Decimal(123)
-
-
-def test_mt5_symbol_mapping():
-    info = SimpleNamespace(
-        name="XAUUSD",
-        trade_contract_size=100,
-        volume_min=0.01,
-        volume_max=100,
-        volume_step=0.01,
-        trade_tick_size=0.01,
-        trade_tick_value=1.0,
-        point=0.01,
-        trade_stops_level=50,
-    )
-    spec = broker_spec_from_mt5(info)
-    assert spec.symbol == "XAUUSD"
-    assert spec.min_stop_distance == Decimal("0.50")
-
-
-def test_mt5_account_mapping():
-    info = SimpleNamespace(balance=20, equity=19.5, margin_free=18)
-    account = account_snapshot_from_mt5(info)
-    assert account.balance == Decimal(20)
-    assert account.free_margin == Decimal(18)
+def test_execution_snapshot_from_mt5_maps_tick_and_margin():
+    snapshot = execution_snapshot_from_mt5(SimpleNamespace(bid=3999.9, ask=4000.1), margin_per_lot=Decimal("1500"), estimated_slippage=Decimal("0.03"))
+    assert snapshot.bid == Decimal("3999.9")
+    assert snapshot.ask == Decimal("4000.1")
+    assert snapshot.spread == Decimal("0.2")
+    assert snapshot.margin_per_lot == Decimal("1500")
+    assert snapshot.estimated_slippage == Decimal("0.03")

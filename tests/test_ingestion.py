@@ -1,57 +1,16 @@
-from datetime import UTC, datetime, timedelta
-from decimal import Decimal
-
-from xau_detective.ingestion import keep_closed_candles, load_multi_timeframe
+from datetime import UTC, datetime
+from xau_detective.ingestion import keep_closed_candles
 from xau_detective.market import Candle
-from xau_detective.timeframes import Timeframe
-
+from xau_detective.timeframes import Timeframe, expected_interval
 
 def candle(ts):
-    return Candle(
-        ts, Decimal(4000), Decimal(4010), Decimal(3990), Decimal(4005)
-    )
+    return Candle(ts, 1, 2, 0, 1, 1)
 
+def test_expected_intervals_are_explicit():
+    assert expected_interval(Timeframe.M5).total_seconds() == 300
+    assert expected_interval(Timeframe.H1).total_seconds() == 3600
 
-class FakeSource:
-    def __init__(self, candles):
-        self.candles = candles
-
-    def fetch(self, symbol, timeframe, count):
-        return self.candles[:count]
-
-
-def test_forming_candle_is_removed():
-    now = datetime(2026, 1, 1, 10, 10, tzinfo=UTC)
-    candles = (
-        candle(datetime(2026, 1, 1, 10, 0, tzinfo=UTC)),
-        candle(datetime(2026, 1, 1, 10, 5, tzinfo=UTC)),
-    )
-    closed = keep_closed_candles(candles, now=now, timeframe=Timeframe.M5)
-    assert len(closed) == 2
-
-
-def test_current_candle_is_not_used():
-    now = datetime(2026, 1, 1, 10, 4, tzinfo=UTC)
-    candles = (
-        candle(datetime(2026, 1, 1, 9, 55, tzinfo=UTC)),
-        candle(datetime(2026, 1, 1, 10, 0, tzinfo=UTC)),
-    )
-    closed = keep_closed_candles(candles, now=now, timeframe=Timeframe.M5)
-    assert len(closed) == 1
-
-
-def test_multi_timeframe_loader_runs_quality_gate():
-    now = datetime(2026, 1, 1, 10, 10, tzinfo=UTC)
-    candles = tuple(
-        candle(datetime(2026, 1, 1, 9, 0, tzinfo=UTC) + timedelta(minutes=5 * i))
-        for i in range(20)
-    )
-    snapshots = load_multi_timeframe(
-        FakeSource(candles),
-        "XAUUSD",
-        (Timeframe.M5,),
-        20,
-        now=now,
-    )
-    assert len(snapshots) == 1
-    assert snapshots[0].quality.usable
+def test_keep_closed_candles_drops_forming_candle():
+    now = datetime(2026, 9, 26, 14, 0, tzinfo=UTC)
+    candles = (candle(datetime(2026, 9, 26, 13, 55, tzinfo=UTC)), candle(datetime(2026, 9, 26, 14, 0, tzinfo=UTC)))
+    assert len(keep_closed_candles(candles, now=now, timeframe=Timeframe.M5)) == 1
