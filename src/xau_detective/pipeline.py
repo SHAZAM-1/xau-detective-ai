@@ -85,7 +85,8 @@ def analyze_market(
     now: datetime | None = None,
     config: AnalysisConfig | None = None,
 ) -> MarketAnalysis:
-    """Analyze closed XAUUSD candles and return an auditable decision."""\n    config = config or AnalysisConfig()
+    """Analyze closed XAUUSD candles and return an auditable decision."""
+    config = config or AnalysisConfig()
     timestamp = now or datetime.now(UTC)
     session = classify_session(timestamp).label
 
