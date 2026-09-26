@@ -125,6 +125,46 @@ def changed_files(base: str, head: str) -> list[str]:
     return [line for line in output.splitlines() if line]
 
 
+def audit_architecture(findings: list[tuple[str, str]]) -> None:
+    pipeline = SRC / "pipeline.py"
+    risk = SRC / "risk.py"
+    models = SRC / "models.py"
+    config = ROOT / "config" / "defaults.example.yaml"
+    strategy_doc = ROOT / "docs" / "STRATEGY_V1.md"
+    risk_doc = ROOT / "docs" / "RISK_MODEL.md"
+
+    pipeline_text = pipeline.read_text(encoding="utf-8") if pipeline.exists() else ""
+    risk_text = risk.read_text(encoding="utf-8") if risk.exists() else ""
+    models_text = models.read_text(encoding="utf-8") if models.exists() else ""
+    config_text = config.read_text(encoding="utf-8") if config.exists() else ""
+    strategy_text = strategy_doc.read_text(encoding="utf-8") if strategy_doc.exists() else ""
+    risk_doc_text = risk_doc.read_text(encoding="utf-8") if risk_doc.exists() else ""
+
+    if "a.balance * request.risk_fraction" in risk_text:
+        findings.append(("FAIL", "Risk sizing uses balance while the risk model specifies equity."))
+    elif "a.equity * request.risk_fraction" in risk_text:
+        findings.append(("PASS", "Risk sizing uses account equity."))
+
+    if "d1=" in pipeline_text and "compute_features(d1" not in pipeline_text:
+        findings.append(("WARN", "D1 context is validated but does not currently contribute evidence or direction."))
+    if "entry = m5[-1].close" in pipeline_text:
+        findings.append(("WARN", "M5 currently supplies the entry price but no independent M5 confirmation family."))
+
+    for key in ("max_daily_loss", "max_spread", "max_slippage", "require_closed_candle_confirmation"):
+        if key in config_text and key not in pipeline_text and key not in risk_text and key not in models_text:
+            findings.append(("WARN", f"Configuration key '{key}' is defined but not consumed by the current core pipeline."))
+
+    for key in ("margin", "spread", "slippage"):
+        if key in risk_doc_text and key not in models_text and key not in risk_text:
+            findings.append(("WARN", f"Risk documentation requires {key} controls, but the current risk domain model does not implement a {key} input/gate."))
+
+    if "A 0–100 setup-quality score" in strategy_text and "ledger.independent_evidence_count * 25" in pipeline_text:
+        findings.append(("WARN", "Pipeline has provisional hard-coded setup-score weights; strategy spec says score weights require historical validation."))
+
+    if "validate_candles(candles)" in pipeline_text and "expected_interval" not in pipeline_text:
+        findings.append(("WARN", "Pipeline validates OHLC integrity but does not enforce expected timeframe intervals/data-gap checks."))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--base", default=os.getenv("HEALTH_BASE_SHA", ""))
