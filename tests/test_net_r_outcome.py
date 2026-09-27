@@ -18,7 +18,7 @@ def candles():
             t + timedelta(minutes=i),
             Decimal(str(p)),
             Decimal(str(h)),
-            Decimal(str(l)),
+            Decimal(str(low)),
             Decimal(str(p)),
             Decimal(1),
         )
