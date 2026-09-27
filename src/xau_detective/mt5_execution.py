@@ -68,9 +68,19 @@ class MetaTrader5DemoGateway:
         if info is None:
             raise ValueError("SYMBOL_INFO_UNAVAILABLE")
         mode = getattr(info, "filling_mode", None)
-        if mode is not None:
-            return int(mode)
-        return int(getattr(self._mt5, "ORDER_FILLING_IOC", 1))
+        if mode is None:
+            return int(getattr(self._mt5, "ORDER_FILLING_IOC", 1))
+
+        # SYMBOL_FILLING_* is a bitmask; request["type_filling"] requires the
+        # corresponding ORDER_FILLING_* enum, not the raw bitmask.
+        mode = int(mode)
+        symbol_fok = int(getattr(self._mt5, "SYMBOL_FILLING_FOK", 1))
+        symbol_ioc = int(getattr(self._mt5, "SYMBOL_FILLING_IOC", 2))
+        if mode & symbol_fok:
+            return int(getattr(self._mt5, "ORDER_FILLING_FOK", 0))
+        if mode & symbol_ioc:
+            return int(getattr(self._mt5, "ORDER_FILLING_IOC", 1))
+        raise ValueError("NO_SUPPORTED_MARKET_FILLING_MODE")
 
     def _send(self, intent: TradeIntent) -> MT5OrderResponse:
         request = self.build_request(intent)
