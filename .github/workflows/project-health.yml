@@ -16,6 +16,7 @@ jobs:
   health:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+      # Trigger a fresh public-repository runner validation after visibility change.
     steps:
       - uses: actions/checkout@v4
         with:
