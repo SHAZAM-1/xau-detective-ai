@@ -72,6 +72,12 @@ class BrokerExecutionGate:
         if bid <= 0 or ask <= 0 or ask < bid:
             return ExecutionGateResult(False, "INVALID_MARKET_PRICE")
 
+        spread = ask - bid
+        if max_spread is not None and spread > max_spread:
+            return ExecutionGateResult(False, "SPREAD_LIMIT_EXCEEDED")
+        if max_slippage is not None and estimated_slippage > max_slippage:
+            return ExecutionGateResult(False, "SLIPPAGE_LIMIT_EXCEEDED")
+
         expected_entry = ask if intent.direction is Direction.BUY else bid
         point = Decimal(str(getattr(symbol_info, "point", "0")))
         if point <= 0:
@@ -79,12 +85,6 @@ class BrokerExecutionGate:
         price_tolerance = point * Decimal("2")
         if abs(intent.entry - expected_entry) > price_tolerance:
             return ExecutionGateResult(False, "STALE_OR_WRONG_SIDE_ENTRY")
-
-        spread = ask - bid
-        if max_spread is not None and spread > max_spread:
-            return ExecutionGateResult(False, "SPREAD_LIMIT_EXCEEDED")
-        if max_slippage is not None and estimated_slippage > max_slippage:
-            return ExecutionGateResult(False, "SLIPPAGE_LIMIT_EXCEEDED")
 
         if intent.direction is Direction.BUY:
             if not (intent.stop_loss < intent.entry < intent.take_profit):
