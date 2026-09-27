@@ -14,3 +14,19 @@ def test_data_gap_is_rejected():
     result = validate_candles((c(t), c(t + timedelta(hours=3))), timedelta(hours=1))
     assert not result.usable
     assert "DATA_GAP" in result.reasons
+
+
+def test_zero_range_candle_is_rejected():
+    t = datetime.now(UTC)
+    candle = Candle(t, Decimal(1), Decimal(1), Decimal(1), Decimal(1))
+    result = validate_candles((candle,))
+    assert not result.usable
+    assert "ZERO_RANGE_CANDLE" in result.reasons
+
+
+def test_non_positive_price_is_rejected():
+    t = datetime.now(UTC)
+    candle = Candle(t, Decimal(0), Decimal(1), Decimal("0.5"), Decimal("0.8"))
+    result = validate_candles((candle,))
+    assert not result.usable
+    assert "NON_POSITIVE_PRICE" in result.reasons
