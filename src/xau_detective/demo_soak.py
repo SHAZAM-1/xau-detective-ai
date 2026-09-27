@@ -138,7 +138,7 @@ def run_demo_soak(
         mt5.account.trade_mode = mt5.trade_mode
 
     service = MT5DemoTradingService(mt5, execution_enabled=False)
-    profile = TradingProfile(auto_analysis_enabled=False)
+    profile = TradingProfile(auto_analysis_enabled=failure in {"DISCONNECT", "TICK"})
     data = valid_candles(now)
     reasons: list[str] = []
 
