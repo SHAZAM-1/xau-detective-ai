@@ -2,6 +2,8 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 from xau_detective.candlestick import (
+    PRO_SCALPER_CANDLESTICK_PATTERNS,
+    PRO_SCALPER_CHART_PATTERNS,
     PriceActionMove,
     detect_candlestick_patterns,
     detect_price_action_moves,
@@ -59,3 +61,10 @@ def test_pattern_study_is_descriptive():
     assert isinstance(studies, tuple)
     if studies:
         assert studies[0].observations > 0
+
+
+def test_pro_scalper_pattern_catalog_is_registered():
+    assert len(PRO_SCALPER_CANDLESTICK_PATTERNS) >= 25
+    assert len(PRO_SCALPER_CHART_PATTERNS) == 20
+    assert "DRAGONFLY_DOJI" in PRO_SCALPER_CANDLESTICK_PATTERNS
+    assert "DOUBLE_TOP" in PRO_SCALPER_CHART_PATTERNS
