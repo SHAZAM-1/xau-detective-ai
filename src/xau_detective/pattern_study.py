@@ -34,7 +34,7 @@ class PatternStudyResult:
     neutral: int
     average_forward_return: Decimal
     median_forward_return: Decimal
-    positive_rate: Decimal
+    directional_win_rate: Decimal
     expectancy: Decimal
     average_mfe: Decimal
     average_mae: Decimal
@@ -123,7 +123,7 @@ def study_patterns(
         bullish = sum(item.forward_returns[-1] > 0 for item in items)
         bearish = sum(item.forward_returns[-1] < 0 for item in items)
         neutral = len(items) - bullish - bearish
-        positive_rate = Decimal(bullish) / Decimal(len(items))
+        directional_wins = sum(\n            (item.forward_returns[-1] > 0 if item.direction == "BULLISH" else\n             item.forward_returns[-1] < 0 if item.direction == "BEARISH" else\n             item.forward_returns[-1] > 0)\n            for item in items\n        )\n        directional_win_rate = Decimal(directional_wins) / Decimal(len(items))
 
         directional_values: list[Decimal] = []
         for item in items:
@@ -141,7 +141,7 @@ def study_patterns(
                 neutral=neutral,
                 average_forward_return=sum(returns, _zero()) / Decimal(len(returns)),
                 median_forward_return=median(returns),
-                positive_rate=positive_rate,
+                directional_win_rate=directional_win_rate,
                 expectancy=sum(directional_values, _zero()) / Decimal(len(directional_values)),
                 average_mfe=sum((item.mfe for item in items), _zero()) / Decimal(len(items)),
                 average_mae=sum((item.mae for item in items), _zero()) / Decimal(len(items)),
