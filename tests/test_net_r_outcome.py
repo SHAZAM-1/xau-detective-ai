@@ -3,17 +3,14 @@ from decimal import Decimal
 
 from xau_detective.market import Candle
 from xau_detective.models import BrokerSpec, Direction
-from xau_detective.net_r_outcome import (
-    NetROutcomeConfig,
-    label_trade_outcome,
-)
+from xau_detective.net_r_outcome import NetROutcomeConfig, label_trade_outcome
 
 
 def candles():
     t = datetime(2026, 1, 1, tzinfo=timezone.utc)
     rows = [
         (100, 101, 99),
-        (100, 102, 99),
+        (100, 102, 100),
         (100, 103, 100),
     ]
     return tuple(
@@ -51,9 +48,7 @@ def test_net_r_includes_commission_and_target():
         take_profit=102,
         volume=1,
         broker=broker(),
-        config=NetROutcomeConfig(
-            commission_per_lot_per_side=Decimal("0.5")
-        ),
+        config=NetROutcomeConfig(commission_per_lot_per_side=Decimal("0.5")),
     )
     assert result is not None
     assert result.exit_reason == "TAKE_PROFIT"
