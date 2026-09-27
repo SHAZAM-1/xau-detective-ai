@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from decimal import Decimal
 from types import SimpleNamespace
 
@@ -6,6 +7,7 @@ import pytest
 from xau_detective.environment import TradingEnvironment
 from xau_detective.mt5_adapter import (
     account_capabilities_from_mt5,
+    candle_from_mt5,
     execution_snapshot_from_mt5,
 )
 
@@ -72,3 +74,46 @@ def test_account_capabilities_allows_explicit_override_for_tests():
         environment=TradingEnvironment.LIVE,
     )
     assert capabilities.environment is TradingEnvironment.LIVE
+
+
+def test_candle_from_mt5_normalizes_aware_datetime_to_utc():
+    timestamp = datetime(2026, 9, 27, 18, 0, tzinfo=UTC)
+    candle = candle_from_mt5(
+        SimpleNamespace(
+            time=timestamp,
+            open=3900,
+            high=3910,
+            low=3890,
+            close=3905,
+            tick_volume=10,
+        )
+    )
+    assert candle.timestamp == timestamp
+
+
+def test_candle_from_mt5_assumes_naive_datetime_is_utc():
+    timestamp = datetime(2026, 9, 27, 18, 0)
+    candle = candle_from_mt5(
+        SimpleNamespace(
+            time=timestamp,
+            open=3900,
+            high=3910,
+            low=3890,
+            close=3905,
+            tick_volume=10,
+        )
+    )
+    assert candle.timestamp == timestamp.replace(tzinfo=UTC)
+
+
+def test_candle_from_mt5_rejects_invalid_timestamp_type():
+    with pytest.raises(TypeError, match="timestamp must be numeric or datetime"):
+        candle_from_mt5(
+            SimpleNamespace(
+                time="2026-09-27T18:00:00Z",
+                open=3900,
+                high=3910,
+                low=3890,
+                close=3905,
+            )
+        )
