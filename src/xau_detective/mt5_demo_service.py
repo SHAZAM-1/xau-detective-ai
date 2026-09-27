@@ -200,23 +200,11 @@ class MT5DemoTradingService:
             )
             return DemoCycleResult(changed, analysis, None, gate.reason)
 
-        try:
-            order = self._executor.execute(
-                capabilities=state.capabilities,
-                profile=profile,
-                intent=intent,
-            )
-        except Exception as exc:
-            reason = f"EXECUTION_ERROR:{type(exc).__name__}:{exc}"
-            self._journal.append(
-                journal_entry_from_intent(
-                    intent=intent,
-                    status="ERROR",
-                    reason=reason,
-                    timestamp=now,
-                )
-            )
-            return DemoCycleResult(changed, analysis, None, reason)
+        order = self._executor.execute(
+            capabilities=state.capabilities,
+            profile=profile,
+            intent=intent,
+        )
         self._journal.append(
             journal_entry_from_intent(
                 intent=intent,

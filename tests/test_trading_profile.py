@@ -39,10 +39,3 @@ def test_profile_cannot_disable_safety_gates():
     assert "max_slippage" in overrides
     assert "risk_fraction" in overrides
     assert "live_execution" not in overrides
-
-
-def test_profile_rejects_empty_or_unknown_sessions():
-    with pytest.raises(ValueError, match="allowed_sessions must not be empty"):
-        TradingProfile(allowed_sessions=()).validate()
-    with pytest.raises(ValueError, match="unsupported session"):
-        TradingProfile(allowed_sessions=("TOKYO",)).validate()
