@@ -161,6 +161,21 @@ class MT5DemoTradingService:
                 return DemoCycleResult(changed, None, None, "USER_DEFINED_REQUIRES_SUGGESTIONS_OFF")
             intent = user_intent
 
+        # V1 keeps one active broker-side exposure per bot symbol/magic.
+        # Broker state remains the source of truth after process restarts.
+        lifecycle = self._positions.snapshot()
+        if lifecycle.active:
+            reason = "ACTIVE_BOT_EXPOSURE_EXISTS"
+            self._journal.append(
+                journal_entry_from_intent(
+                    intent=intent,
+                    status="REJECTED",
+                    reason=reason,
+                    timestamp=now,
+                )
+            )
+            return DemoCycleResult(changed, analysis, None, reason)
+
         gate = self._execution_gate.validate(
             mt5=self._mt5,
             capabilities=state.capabilities,
