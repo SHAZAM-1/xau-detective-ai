@@ -17,7 +17,7 @@ def candle(o, h, low, c, minute):
         timestamp=datetime(2026, 9, 27, 10, minute, tzinfo=timezone.utc),
         open=Decimal(str(o)),
         high=Decimal(str(h)),
-        low=Decimal(str(l)),
+        low=Decimal(str(low)),
         close=Decimal(str(c)),
     )
 
