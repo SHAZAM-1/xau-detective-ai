@@ -30,6 +30,8 @@ from .trading_profile import TradingProfile
 
 
 @dataclass(frozen=True)
+
+
 class AnalysisConfig:
     risk_fraction: Decimal = Decimal("0.01")
     safety_margin: Decimal = Decimal("0.90")
@@ -64,6 +66,8 @@ class AnalysisConfig:
 
 
 @dataclass(frozen=True)
+
+
 class MarketAnalysis:
     decision: Decision
     timestamp: datetime
