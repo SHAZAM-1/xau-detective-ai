@@ -24,6 +24,7 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+select = ["E", "F"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
