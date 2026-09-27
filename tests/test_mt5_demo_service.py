@@ -57,11 +57,11 @@ class FakeMT5:
         return SimpleNamespace(retcode=10009, order=777, comment="done")
 
 
-def candles():
+def candles(step=timedelta(hours=1)):
     start = datetime(2026, 9, 26, 10, tzinfo=timezone.utc)
     return tuple(
         SimpleNamespace(
-            timestamp=start + timedelta(hours=i),
+            timestamp=start + step * i,
             open=Decimal("4000"),
             high=Decimal("4002"),
             low=Decimal("3998"),
@@ -114,12 +114,12 @@ def test_service_respects_auto_analysis_disabled():
     service = MT5DemoTradingService(mt5, execution_enabled=True)
     result = service.cycle(
         profile=TradingProfile(auto_analysis_enabled=False),
-        d1=candles(),
-        h4=candles(),
-        h1=candles(),
-        m15=candles(),
-        m5=candles(),
-        now=datetime(2026, 9, 26, 12, tzinfo=timezone.utc),
+        d1=candles(timedelta(days=1)),
+        h4=candles(timedelta(hours=4)),
+        h1=candles(timedelta(hours=1)),
+        m15=candles(timedelta(minutes=15)),
+        m5=candles(timedelta(minutes=5)),
+        now=datetime(2026, 9, 27, 12, tzinfo=timezone.utc),
         idempotency_key="auto-analysis-off",
     )
     assert result.reason == "AUTO_ANALYSIS_DISABLED"

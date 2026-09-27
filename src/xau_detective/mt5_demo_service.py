@@ -132,6 +132,9 @@ class MT5DemoTradingService:
         except (AttributeError, TypeError, ValueError):
             return DemoCycleResult(changed, None, None, "MT5_SNAPSHOT_INVALID")
 
+        if user_intent is None and not profile.auto_analysis_enabled:
+            return DemoCycleResult(changed, None, None, "AUTO_ANALYSIS_DISABLED")
+
         preflight = run_production_preflight(
             capabilities=state.capabilities,
             account=account,
@@ -149,9 +152,6 @@ class MT5DemoTradingService:
             return DemoCycleResult(changed, None, None, preflight.reason)
 
         analysis = None
-
-        if user_intent is None and not profile.auto_analysis_enabled:
-            return DemoCycleResult(changed, None, None, "AUTO_ANALYSIS_DISABLED")
 
         if user_intent is None:
             from .demo_runner import build_demo_proposal

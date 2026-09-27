@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from decimal import Decimal
 
 from xau_detective.demo_runner import build_demo_proposal, calculate_demo_risk_budget
@@ -51,6 +52,7 @@ def test_demo_runner_stops_when_execution_capability_is_missing():
         execution=execution,
         profile=TradingProfile(),
         d1=(), h4=(), h1=(), m15=(), m5=(),
+        now=datetime(2026, 9, 27, 14, tzinfo=timezone.utc),
     )
     assert not result.allowed
     assert result.analysis is not None
@@ -70,7 +72,8 @@ def test_demo_proposal_can_analyze_when_execution_is_disabled():
     )
     result = build_demo_proposal(
         capabilities=blocked, account=account, broker=broker, execution=execution,
-        profile=TradingProfile(), d1=(), h4=(), h1=(), m15=(), m5=()
+        profile=TradingProfile(), d1=(), h4=(), h1=(), m15=(), m5=(),
+        now=datetime(2026, 9, 27, 14, tzinfo=timezone.utc),
     )
     assert result.analysis is not None
     assert result.reason == "DATA_QUALITY:D1:NO_CANDLES"
