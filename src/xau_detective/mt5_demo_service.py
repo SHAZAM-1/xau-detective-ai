@@ -22,6 +22,7 @@ from .mt5_execution import MetaTrader5DemoGateway
 from .mt5_position_manager import LifecycleSnapshot, MT5PositionManager
 from .mt5_session import MT5SessionMonitor
 from .pipeline import MarketAnalysis
+from .production_preflight import run_production_preflight
 from .trade_journal import InMemoryTradeJournal, TradeJournal, journal_entry_from_intent
 from .trading_profile import TradingProfile
 
@@ -130,6 +131,22 @@ class MT5DemoTradingService:
             execution = execution_snapshot_from_mt5(tick)
         except (AttributeError, TypeError, ValueError):
             return DemoCycleResult(changed, None, None, "MT5_SNAPSHOT_INVALID")
+
+        preflight = run_production_preflight(
+            capabilities=state.capabilities,
+            account=account,
+            broker=broker,
+            execution=execution,
+            profile=profile,
+            d1=d1,
+            h4=h4,
+            h1=h1,
+            m15=m15,
+            m5=m5,
+            now=now,
+        )
+        if not preflight.ready:
+            return DemoCycleResult(changed, None, None, preflight.reason)
 
         analysis = None
 
