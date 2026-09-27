@@ -10,7 +10,6 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
 
-from .environment import TradingEnvironment
 from .market import Candle
 from .mt5_demo_service import MT5DemoTradingService
 from .trading_profile import TradingProfile
