@@ -6,6 +6,8 @@ from decimal import Decimal
 
 
 @dataclass(frozen=True)
+
+
 class TradingProfile:
     """User preferences applied to analysis and execution policy.
 
