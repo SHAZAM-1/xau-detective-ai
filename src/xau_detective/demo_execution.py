@@ -22,6 +22,8 @@ class TradeSource(str, Enum):
 
 
 @dataclass(frozen=True)
+
+
 class TradeIntent:
     symbol: str
     direction: Direction
@@ -35,6 +37,8 @@ class TradeIntent:
 
 
 @dataclass(frozen=True)
+
+
 class DemoOrderResult:
     submitted: bool
     reason: str
