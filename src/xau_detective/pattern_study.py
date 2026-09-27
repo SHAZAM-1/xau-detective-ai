@@ -150,3 +150,54 @@ def study_patterns(
         )
 
     return tuple(results)
+
+@dataclass(frozen=True)
+class PatternDatasetRow:
+    timeframe: str
+    pattern: str
+    timestamp: object
+    index: int
+    direction: str
+    confidence: Decimal
+    horizon: int
+    forward_return: Decimal
+    mfe: Decimal
+    mae: Decimal
+
+
+def build_pattern_dataset(
+    candles_by_timeframe: dict[str, tuple[Candle, ...]],
+    *,
+    horizons: tuple[int, ...] = (1, 3, 5),
+) -> tuple[PatternDatasetRow, ...]:
+    """Build point-in-time-safe pattern/outcome rows for offline research.
+
+    Rows are emitted only when the complete forward horizon exists. The builder
+    never uses future candles to decide whether a pattern exists.
+    """
+    if not horizons or any(horizon <= 0 for horizon in horizons):
+        raise ValueError("horizons must contain only positive values")
+
+    rows: list[PatternDatasetRow] = []
+    for timeframe, candles in sorted(candles_by_timeframe.items()):
+        patterns = detect_candlestick_patterns(candles)
+        for pattern in patterns:
+            for horizon in horizons:
+                item = _observation(pattern, candles, horizon)
+                if item is None:
+                    continue
+                rows.append(
+                    PatternDatasetRow(
+                        timeframe=timeframe,
+                        pattern=pattern.name,
+                        timestamp=candles[pattern.index].timestamp,
+                        index=pattern.index,
+                        direction=pattern.direction,
+                        confidence=pattern.confidence,
+                        horizon=horizon,
+                        forward_return=item.forward_returns[-1],
+                        mfe=item.mfe,
+                        mae=item.mae,
+                    )
+                )
+    return tuple(rows)
