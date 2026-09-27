@@ -118,6 +118,9 @@ class MT5DemoTradingService:
 
         analysis = None
 
+        if user_intent is None and not profile.auto_analysis_enabled:
+            return DemoCycleResult(changed, None, None, "AUTO_ANALYSIS_DISABLED")
+
         if user_intent is None:
             from .demo_runner import build_demo_proposal
 

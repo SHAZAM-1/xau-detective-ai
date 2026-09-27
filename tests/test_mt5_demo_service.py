@@ -107,3 +107,20 @@ def test_service_has_demo_executor_boundary():
     mt5 = FakeMT5()
     service = MT5DemoTradingService(mt5, execution_enabled=False)
     assert service.session.state is None
+
+
+def test_service_respects_auto_analysis_disabled():
+    mt5 = FakeMT5()
+    service = MT5DemoTradingService(mt5, execution_enabled=True)
+    result = service.cycle(
+        profile=TradingProfile(auto_analysis_enabled=False),
+        d1=candles(),
+        h4=candles(),
+        h1=candles(),
+        m15=candles(),
+        m5=candles(),
+        now=datetime(2026, 9, 26, 12, tzinfo=timezone.utc),
+        idempotency_key="auto-analysis-off",
+    )
+    assert result.reason == "AUTO_ANALYSIS_DISABLED"
+    assert mt5.sent == []
