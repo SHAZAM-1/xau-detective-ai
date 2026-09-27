@@ -23,6 +23,7 @@ from .mt5_position_manager import LifecycleSnapshot, MT5PositionManager
 from .mt5_session import MT5SessionMonitor
 from .pipeline import MarketAnalysis
 from .production_preflight import run_production_preflight
+from .runtime_health import RuntimeHealthTracker
 from .trade_journal import InMemoryTradeJournal, TradeJournal, journal_entry_from_intent
 from .trading_profile import TradingProfile
 
@@ -58,6 +59,7 @@ class MT5DemoTradingService:
         self._execution_gate = BrokerExecutionGate()
         self._journal = journal or InMemoryTradeJournal()
         self._positions = MT5PositionManager(mt5_module, symbol=symbol, magic=magic)
+        self._health = RuntimeHealthTracker()
 
     @property
     def session(self) -> MT5SessionMonitor:
@@ -65,7 +67,14 @@ class MT5DemoTradingService:
 
     def lifecycle(self) -> LifecycleSnapshot:
         """Return the latest broker-reported orders and positions for this bot."""
-        return self._positions.snapshot()
+        snapshot = self._positions.snapshot()
+        self._health.reconciliation_checked(datetime.now(UTC), active_exposure=snapshot.active)
+        return snapshot
+
+    @property
+    def health(self) -> RuntimeHealthTracker:
+        """Return operational telemetry; it does not influence trading decisions."""
+        return self._health
 
     def cycle(
         self,
@@ -82,6 +91,7 @@ class MT5DemoTradingService:
     ) -> DemoCycleResult:
         if now is None:
             now = datetime.now(UTC)
+        self._health.cycle_started(now)
 
         try:
             account_info = self._mt5.account_info()
@@ -149,7 +159,9 @@ class MT5DemoTradingService:
             now=now,
         )
         if not preflight.ready:
+            self._health.rejected(preflight.reason)
             return DemoCycleResult(changed, None, None, preflight.reason)
+        self._health.preflight_passed()
 
         analysis = None
 
@@ -172,6 +184,7 @@ class MT5DemoTradingService:
             if not proposal.allowed or proposal.analysis is None:
                 return DemoCycleResult(changed, proposal.analysis, None, proposal.reason)
 
+            self._health.analysis_attempted(now)
             analysis = proposal.analysis
             decision = analysis.decision
             if decision.scenario is None or decision.risk is None:
@@ -199,6 +212,7 @@ class MT5DemoTradingService:
         # V1 keeps one active broker-side exposure per bot symbol/magic.
         # Broker state remains the source of truth after process restarts.
         lifecycle = self._positions.snapshot()
+        self._health.reconciliation_checked(now, active_exposure=lifecycle.active)
         if lifecycle.active:
             reason = "ACTIVE_BOT_EXPOSURE_EXISTS"
             self._journal.append(
@@ -209,6 +223,7 @@ class MT5DemoTradingService:
                     timestamp=now,
                 )
             )
+            self._health.rejected(reason)
             return DemoCycleResult(changed, analysis, None, reason)
 
         gate = self._execution_gate.validate(
@@ -230,8 +245,10 @@ class MT5DemoTradingService:
                     timestamp=now,
                 )
             )
+            self._health.rejected(gate.reason)
             return DemoCycleResult(changed, analysis, None, gate.reason)
 
+        self._health.execution_attempted(now)
         try:
             order = self._executor.execute(
                 capabilities=state.capabilities,
@@ -248,6 +265,7 @@ class MT5DemoTradingService:
                     timestamp=now,
                 )
             )
+            self._health.errored(reason)
             return DemoCycleResult(changed, analysis, None, reason)
         self._journal.append(
             journal_entry_from_intent(
@@ -258,4 +276,9 @@ class MT5DemoTradingService:
                 timestamp=now,
             )
         )
+        if order.submitted:
+            self._health.execution_succeeded()
+        else:
+            self._health.rejected(order.reason)
+        self._health.reason(order.reason)
         return DemoCycleResult(changed, analysis, order, order.reason)
