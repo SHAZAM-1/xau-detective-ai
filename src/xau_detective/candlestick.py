@@ -102,6 +102,65 @@ def _small_body(c: Candle, reference: Decimal) -> bool:
 def _long_body(c: Candle, reference: Decimal) -> bool:
     return c.body >= reference * Decimal("1.25")
 
+@dataclass(frozen=True)
+class PatternRead:
+    """Conservative interpretation of detected patterns.
+
+    A pattern is only considered directional when OHLC data is internally valid,
+    the detected evidence is not materially conflicted, and enough independent
+    pattern evidence points the same way. Ambiguity becomes NEUTRAL rather than
+    an invented BUY/SELL interpretation.
+    """
+    direction: str
+    confidence: Decimal
+    names: tuple[str, ...]
+    warnings: tuple[str, ...]
+
+
+def validate_ohlc_for_pattern_read(candles: tuple[Candle, ...]) -> tuple[str, ...]:
+    warnings: list[str] = []
+    previous = None
+    for index, candle in enumerate(candles):
+        if candle.high < max(candle.open, candle.close) or candle.low > min(candle.open, candle.close):
+            warnings.append(f"INVALID_OHLC:{index}")
+        if candle.range <= 0:
+            warnings.append(f"ZERO_RANGE:{index}")
+        if previous is not None and candle.timestamp <= previous:
+            warnings.append(f"NON_MONOTONIC_TIMESTAMP:{index}")
+        previous = candle.timestamp
+    return tuple(warnings)
+
+
+def interpret_pattern_read(
+    candles: tuple[Candle, ...],
+    *,
+    min_confidence: Decimal = Decimal("0.60"),
+    min_directional_patterns: int = 2,
+) -> PatternRead:
+    """Read the latest closed-candle pattern context without forcing a trade."""
+    warnings = list(validate_ohlc_for_pattern_read(candles))
+    patterns = detect_candlestick_patterns(candles) if not warnings else ()
+    latest = [p for p in patterns if p.index == len(candles) - 1]
+    names = tuple(p.name for p in latest)
+
+    bullish = [p for p in latest if p.direction == "BULLISH" and p.confidence >= min_confidence]
+    bearish = [p for p in latest if p.direction == "BEARISH" and p.confidence >= min_confidence]
+    if bullish and bearish:
+        warnings.append("PATTERN_CONFLICT_LATEST_CANDLE")
+        return PatternRead("NEUTRAL", Decimal("0"), names, tuple(warnings))
+    if len(bullish) < min_directional_patterns and len(bearish) < min_directional_patterns:
+        if bullish or bearish:
+            warnings.append("INSUFFICIENT_DIRECTIONAL_PATTERN_CONFIRMATION")
+        return PatternRead("NEUTRAL", Decimal("0"), names, tuple(warnings))
+
+    selected = bullish if bullish else bearish
+    confidence = min(
+        Decimal("1"),
+        sum((p.confidence for p in selected), Decimal("0")) / Decimal(len(selected)),
+    )
+    direction = "BULLISH" if bullish else "BEARISH"
+    return PatternRead(direction, confidence, names, tuple(warnings))
+
 
 def detect_candlestick_patterns(candles: tuple[Candle, ...]) -> tuple[CandlePattern, ...]:
     found = []
