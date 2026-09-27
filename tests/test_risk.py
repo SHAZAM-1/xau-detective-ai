@@ -134,3 +134,9 @@ def test_execution_threshold_requires_snapshot():
     result = calculate_position_size(request(max_spread=Decimal("0.20")))
     assert not result.executable
     assert result.reason == "EXECUTION_SNAPSHOT_REQUIRED"
+
+
+def test_invalid_safety_margin_is_no_trade():
+    result = calculate_position_size(request(safety_margin=Decimal("1.01")))
+    assert not result.executable
+    assert result.reason == "INVALID_SAFETY_MARGIN"
