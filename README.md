@@ -97,6 +97,7 @@ The important safety rule is: **the bot does not blindly rewrite its strategy af
 - [Risk Model](docs/RISK_MODEL.md)
 - [Scoring Specification](docs/SCORING_SPEC.md)
 - [Statistical Scoring Baseline](docs/SCORING_BASELINE.md)
+- [Feature Redundancy Analysis](docs/FEATURE_REDUNDANCY.md)
 - [Validation Plan](docs/VALIDATION_PLAN.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Example Configuration](config/defaults.example.yaml)
@@ -152,7 +153,7 @@ If the requested position cannot be executed while respecting the configured ris
 - [x] Monte Carlo drawdown / ruin stress testing
 - [x] Broker-aware deterministic paper-trading / execution simulator
 - [x] Phase 1 leakage-safe calibrated baseline scoring
-- [ ] Feature redundancy analysis
+- [x] Training-only feature redundancy analysis / anti-double-counting control
 - [ ] Net-R outcome labeling with execution friction
 - [ ] Regularized statistical model
 - [ ] Held-out probability calibration
