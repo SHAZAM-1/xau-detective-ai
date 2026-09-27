@@ -3,13 +3,19 @@ name: project-health-check
 on:
   push:
   pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: project-health-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
   health:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
