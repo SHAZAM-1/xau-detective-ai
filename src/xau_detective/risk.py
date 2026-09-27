@@ -22,6 +22,8 @@ def calculate_position_size(request: RiskRequest) -> RiskResult:
     a = request.account
     if request.risk_fraction <= 0 or request.risk_fraction > 1:
         return _veto("INVALID_RISK_FRACTION")
+    if request.safety_margin <= 0 or request.safety_margin > 1:
+        return _veto("INVALID_SAFETY_MARGIN")
     if request.entry <= 0 or request.stop_loss <= 0 or request.entry == request.stop_loss:
         return _veto("INVALID_ENTRY_OR_STOP")
     if b.tick_size <= 0 or b.tick_value <= 0:
