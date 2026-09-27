@@ -11,6 +11,7 @@ from decimal import Decimal
 from types import SimpleNamespace
 
 from .environment import TradingEnvironment
+from .market import Candle
 from .mt5_demo_service import MT5DemoTradingService
 from .trading_profile import TradingProfile
 
@@ -92,7 +93,7 @@ def valid_candles(now: datetime) -> dict[str, tuple]:
     def series(step: timedelta, count: int, age: timedelta) -> tuple:
         start = now - age - step * count
         return tuple(
-            SimpleNamespace(
+            Candle(
                 timestamp=start + step * i,
                 open=Decimal("4000"),
                 high=Decimal("4002"),
