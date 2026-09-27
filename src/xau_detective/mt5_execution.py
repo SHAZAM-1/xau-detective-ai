@@ -17,6 +17,9 @@ from .models import Direction
 class MT5OrderResponse:
     accepted: bool
     order_id: str | None
+    deal_id: str | None
+    filled_volume: Decimal | None
+    price: Decimal | None
     retcode: int | None
     comment: str
 
@@ -75,7 +78,7 @@ class MetaTrader5DemoGateway:
             return int(ioc)
         return int(ioc)
 
-    def send_order(self, intent: TradeIntent) -> str:
+    def send_order_detailed(self, intent: TradeIntent) -> MT5OrderResponse:
         request = self.build_request(intent)
         order_check = getattr(self._mt5, "order_check", None)
         if callable(order_check):
