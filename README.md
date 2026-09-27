@@ -96,6 +96,7 @@ The important safety rule is: **the bot does not blindly rewrite its strategy af
 - [Strategy V1](docs/STRATEGY_V1.md)
 - [Risk Model](docs/RISK_MODEL.md)
 - [Scoring Specification](docs/SCORING_SPEC.md)
+- [Statistical Scoring Baseline](docs/SCORING_BASELINE.md)
 - [Validation Plan](docs/VALIDATION_PLAN.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Example Configuration](config/defaults.example.yaml)
@@ -144,12 +145,18 @@ If the requested position cannot be executed while respecting the configured ris
 - [x] Live execution remains locked by the V1 policy
 
 ### Next
-- [x] Historical feature/outcome dataset builder\n- [x] Candlestick pattern research lab (forward returns, directional win rate, MFE/MAE, expectancy)\n- [ ] Pattern + regime/session/volatility stratified study
-- [ ] Walk-forward evaluation
+- [x] Historical feature/outcome dataset builder
+- [x] Candlestick pattern research lab (forward returns, directional win rate, MFE/MAE, expectancy)
+- [x] Pattern + regime/session/volatility stratified study
+- [x] Chronological out-of-sample and walk-forward validation
 - [x] Monte Carlo drawdown / ruin stress testing
-- [ ] Calibrated statistical scoring
-- [ ] Paper-trading pipeline
-- [ ] Broker-aware execution simulator
+- [x] Broker-aware deterministic paper-trading / execution simulator
+- [x] Phase 1 leakage-safe calibrated baseline scoring
+- [ ] Feature redundancy analysis
+- [ ] Net-R outcome labeling with execution friction
+- [ ] Regularized statistical model
+- [ ] Held-out probability calibration
+- [ ] Calibration drift monitoring
 - [ ] Live execution only after validation and risk review
 
 See [Roadmap](docs/ROADMAP.md) for the planned sequence.
