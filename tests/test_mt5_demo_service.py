@@ -1,9 +1,14 @@
-from datetime import datetime, timedelta, timezone
+from datetime datetime, timedelta, timezone
 from decimal import Decimal
 from types import SimpleNamespace
 
 from xau_detective.environment import TradingEnvironment
+from xau_detective.demo_execution import TradeIntent, TradeSource
+from xau_detective.environment import TradingEnvironment
 from xau_detective.mt5_demo_service import MT5DemoTradingService
+from xau_detective.models import Direction
+from xau_detective.risk import RiskResult
+from xau_detective.trade_journal import InMemoryTradeJournal, journal_entry_from_intent
 from xau_detective.trading_profile import TradingProfile
 
 
@@ -152,3 +157,133 @@ def test_service_handles_mt5_tick_exception():
         idempotency_key="broken-tick",
     )
     assert result.reason == "MT5_TICK_UNAVAILABLE"
+
+
+def pending_intent(key="recovery-1"):
+    return TradeIntent(
+        symbol="XAUUSD",
+        direction=Direction.BUY,
+        volume=Decimal("0.02"),
+        entry=Decimal("4000"),
+        stop_loss=Decimal("3990"),
+        take_profit=Decimal("4020"),
+        source=TradeSource.BOT_SUGGESTION,
+        idempotency_key=key,
+        risk=RiskResult(True, Decimal("0.02"), Decimal("1"), Decimal("1"), "OK"),
+    )
+
+
+def seed_pending(journal, key="recovery-1"):
+    intent = pending_intent(key)
+    journal.append(
+        journal_entry_from_intent(
+            intent=intent,
+            status="PENDING_SUBMISSION",
+            reason="BROKER_SUBMISSION_PENDING",
+            timestamp=datetime(2026, 9, 27, 12, tzinfo=timezone.utc),
+        )
+    )
+    return intent
+
+
+def test_recovery_records_open_position_without_resubmitting():
+    mt5 = FakeMT5()
+    mt5.positions_get = lambda *, symbol: (
+        SimpleNamespace(ticket=777, symbol=symbol, volume=Decimal("0.02"),
+                        price_open=Decimal("4000"), sl=Decimal("3990"), tp=Decimal("4020"),
+                        magic=260926, comment="xau-detective-demo"),
+    )
+    mt5.orders_get = lambda *, symbol: ()
+    journal = InMemoryTradeJournal()
+    seed_pending(journal)
+    result = MT5DemoTradingService(mt5, journal=journal).recover_pending_submission(
+        idempotency_key="recovery-1", position_id="777"
+    )
+    assert result.state.value == "POSITION_OPEN"
+    assert mt5.sent == []
+    assert journal.latest_for_idempotency_key("recovery-1").status == "RECOVERED_POSITION_OPEN"
+
+
+def test_recovery_records_partial_fill():
+    mt5 = FakeMT5()
+    mt5.positions_get = lambda *, symbol: (
+        SimpleNamespace(ticket=777, symbol=symbol, volume=Decimal("0.01"),
+                        price_open=Decimal("4000"), sl=Decimal("3990"), tp=Decimal("4020"),
+                        magic=260926, comment="xau-detective-demo"),
+    )
+    mt5.orders_get = lambda *, symbol: ()
+    journal = InMemoryTradeJournal()
+    seed_pending(journal)
+    result = MT5DemoTradingService(mt5, journal=journal).recover_pending_submission(
+        idempotency_key="recovery-1", position_id="777"
+    )
+    assert result.state.value == "PARTIAL_FILL"
+    assert journal.latest_for_idempotency_key("recovery-1").status == "RECOVERED_PARTIAL_FILL"
+
+
+def test_recovery_records_pending_order():
+    mt5 = FakeMT5()
+    mt5.positions_get = lambda *, symbol: ()
+    mt5.orders_get = lambda *, symbol: (
+        SimpleNamespace(ticket=777, symbol=symbol, volume_current=Decimal("0.02"),
+                        price_open=Decimal("4000"), magic=260926, comment="xau-detective-demo", state="STARTED"),
+    )
+    journal = InMemoryTradeJournal()
+    seed_pending(journal)
+    result = MT5DemoTradingService(mt5, journal=journal).recover_pending_submission(
+        idempotency_key="recovery-1", order_id="777"
+    )
+    assert result.state.value == "PENDING_ORDER"
+    assert journal.latest_for_idempotency_key("recovery-1").status == "RECOVERED_PENDING_ORDER"
+
+
+def test_recovery_records_closed_by_sl_and_tp():
+    for reason, expected in ((4, "RECOVERED_CLOSED_BY_SL"), (5, "RECOVERED_CLOSED_BY_TP")):
+        mt5 = FakeMT5(deals=(SimpleNamespace(entry=1, reason=reason),))
+        mt5.positions_get = lambda *, symbol: ()
+        mt5.orders_get = lambda *, symbol: ()
+        journal = InMemoryTradeJournal()
+        seed_pending(journal)
+        result = MT5DemoTradingService(mt5, journal=journal).recover_pending_submission(
+            idempotency_key="recovery-1", order_id="777", position_id="888"
+        )
+        assert result.state.value in {"CLOSED_BY_SL", "CLOSED_BY_TP"}
+        assert journal.latest_for_idempotency_key("recovery-1").status == expected
+
+
+def test_recovery_records_manual_close():
+    mt5 = FakeMT5(deals=(SimpleNamespace(entry=1, reason=0),))
+    mt5.positions_get = lambda *, symbol: ()
+    mt5.orders_get = lambda *, symbol: ()
+    journal = InMemoryTradeJournal()
+    seed_pending(journal)
+    result = MT5DemoTradingService(mt5, journal=journal).recover_pending_submission(
+        idempotency_key="recovery-1", order_id="777", position_id="888"
+    )
+    assert result.state.value == "CLOSED_MANUALLY"
+    assert journal.latest_for_idempotency_key("recovery-1").status == "RECOVERED_CLOSED_MANUALLY"
+
+
+def test_recovery_requires_manual_reconciliation_when_broker_state_is_missing():
+    mt5 = FakeMT5()
+    mt5.positions_get = lambda *, symbol: ()
+    mt5.orders_get = lambda *, symbol: ()
+    journal = InMemoryTradeJournal()
+    seed_pending(journal)
+    result = MT5DemoTradingService(mt5, journal=journal).recover_pending_submission(
+        idempotency_key="recovery-1", order_id="777"
+    )
+    assert result.state.value == "NOT_FOUND"
+    entry = journal.latest_for_idempotency_key("recovery-1")
+    assert entry.status == "RECOVERY_REQUIRED"
+    assert entry.reason == "BROKER_STATE_NOT_FOUND_MANUAL_RECONCILIATION_REQUIRED"
+
+
+def test_recovery_rejects_unknown_pending_submission():
+    service = MT5DemoTradingService(FakeMT5())
+    try:
+        service.recover_pending_submission(idempotency_key="missing")
+    except ValueError as exc:
+        assert str(exc) == "PENDING_SUBMISSION_NOT_FOUND"
+    else:
+        raise AssertionError("expected missing pending submission to fail closed")
