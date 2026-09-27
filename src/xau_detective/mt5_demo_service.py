@@ -27,6 +27,8 @@ from .trading_profile import TradingProfile
 
 
 @dataclass(frozen=True)
+
+
 class DemoCycleResult:
     session_changed: bool
     analysis: MarketAnalysis | None
