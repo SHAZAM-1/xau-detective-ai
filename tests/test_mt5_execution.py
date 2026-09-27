@@ -96,3 +96,24 @@ def test_no_trade_cannot_build_request():
     gateway = MetaTrader5DemoGateway(mt5)
     with pytest.raises(ValueError, match="NO_TRADE_DIRECTION"):
         gateway.build_request(intent(Direction.NO_TRADE))
+
+
+def test_send_order_detailed_exposes_order_deal_volume_and_price():
+    mt5 = FakeMT5(
+        SimpleNamespace(
+            retcode=10009,
+            order=123,
+            deal=456,
+            volume=0.01,
+            price=4000.25,
+            comment="done",
+        )
+    )
+    response = MetaTrader5DemoGateway(mt5).send_order_detailed(intent())
+
+    assert response.accepted is True
+    assert response.order_id == "123"
+    assert response.deal_id == "456"
+    assert response.filled_volume == Decimal("0.01")
+    assert response.price == Decimal("4000.25")
+    assert response.retcode == 10009
