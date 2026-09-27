@@ -6,7 +6,7 @@ import pytest
 
 from xau_detective.demo_execution import TradeIntent, TradeSource
 from xau_detective.models import Direction, RiskResult
-from xau_detective.trade_journal import InMemoryTradeJournal, journal_entry_from_intent
+from xau_detective.trade_journal import InMemoryTradeJournal, TradeJournalEntry, journal_entry_from_intent
 
 
 def test_trade_journal_records_execution_fact():
