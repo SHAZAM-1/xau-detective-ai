@@ -124,3 +124,31 @@ def test_service_respects_auto_analysis_disabled():
     )
     assert result.reason == "AUTO_ANALYSIS_DISABLED"
     assert mt5.sent == []
+
+
+def test_service_handles_mt5_account_exception():
+    mt5 = FakeMT5()
+    def broken_account_info():
+        raise RuntimeError("connection lost")
+    mt5.account_info = broken_account_info
+    service = MT5DemoTradingService(mt5)
+    result = service.cycle(
+        profile=TradingProfile(), d1=candles(), h4=candles(), h1=candles(),
+        m15=candles(), m5=candles(), now=datetime(2026, 9, 26, 12, tzinfo=timezone.utc),
+        idempotency_key="broken-account",
+    )
+    assert result.reason == "MT5_ACCOUNT_INFO_UNAVAILABLE"
+
+
+def test_service_handles_mt5_tick_exception():
+    mt5 = FakeMT5()
+    def broken_tick(symbol):
+        raise RuntimeError("tick unavailable")
+    mt5.symbol_info_tick = broken_tick
+    service = MT5DemoTradingService(mt5)
+    result = service.cycle(
+        profile=TradingProfile(), d1=candles(), h4=candles(), h1=candles(),
+        m15=candles(), m5=candles(), now=datetime(2026, 9, 26, 12, tzinfo=timezone.utc),
+        idempotency_key="broken-tick",
+    )
+    assert result.reason == "MT5_TICK_UNAVAILABLE"

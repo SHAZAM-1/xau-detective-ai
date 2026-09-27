@@ -82,19 +82,31 @@ class MT5DemoTradingService:
         if now is None:
             now = datetime.now(UTC)
 
-        account_info = self._mt5.account_info()
+        try:
+            account_info = self._mt5.account_info()
+        except Exception:
+            return DemoCycleResult(False, None, None, "MT5_ACCOUNT_INFO_UNAVAILABLE")
         if account_info is None:
             return DemoCycleResult(False, None, None, "MT5_ACCOUNT_INFO_UNAVAILABLE")
 
-        terminal_info = getattr(self._mt5, "terminal_info", lambda: None)()
+        try:
+            terminal_info = getattr(self._mt5, "terminal_info", lambda: None)()
+        except Exception:
+            return DemoCycleResult(False, None, None, "MT5_CONNECTION_UNHEALTHY")
         connected = terminal_info is not None and bool(
             getattr(terminal_info, "connected", True)
         )
         session_before = self._session.state.identity if self._session.state else None
 
-        symbol_info = self._mt5.symbol_info(self._symbol)
+        try:
+            symbol_info = self._mt5.symbol_info(self._symbol)
+        except Exception:
+            return DemoCycleResult(False, None, None, "MT5_SYMBOL_INFO_UNAVAILABLE")
         symbol_available = symbol_info is not None
-        tick = self._mt5.symbol_info_tick(self._symbol) if symbol_available else None
+        try:
+            tick = self._mt5.symbol_info_tick(self._symbol) if symbol_available else None
+        except Exception:
+            return DemoCycleResult(False, None, None, "MT5_TICK_UNAVAILABLE")
         if tick is None:
             return DemoCycleResult(False, None, None, "MT5_TICK_UNAVAILABLE")
 
@@ -112,9 +124,12 @@ class MT5DemoTradingService:
         if state.capabilities.environment is not TradingEnvironment.DEMO:
             return DemoCycleResult(changed, None, None, "LIVE_EXECUTION_LOCKED_V1")
 
-        account = account_snapshot_from_mt5(account_info)
-        broker = broker_spec_from_mt5(symbol_info)
-        execution = execution_snapshot_from_mt5(tick)
+        try:
+            account = account_snapshot_from_mt5(account_info)
+            broker = broker_spec_from_mt5(symbol_info)
+            execution = execution_snapshot_from_mt5(tick)
+        except (AttributeError, TypeError, ValueError):
+            return DemoCycleResult(changed, None, None, "MT5_SNAPSHOT_INVALID")
 
         analysis = None
 
