@@ -16,7 +16,6 @@ jobs:
   health:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
-      # Trigger a fresh public-repository runner validation after visibility change.
     steps:
       - uses: actions/checkout@v4
         with:
@@ -37,7 +36,7 @@ jobs:
 
       - name: Run project health check
         env:
-          HEALTH_BASE_SHA: ${{ github.event.before }}
+          HEALTH_BASE_SHA: ${{ github.event.before || github.event.pull_request.base.sha || github.sha }}
           HEALTH_HEAD_SHA: ${{ github.sha }}
         run: |
           mkdir -p health-report
