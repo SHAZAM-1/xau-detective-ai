@@ -139,7 +139,6 @@ def run_demo_soak(
         mt5.account.trade_mode = mt5.trade_mode
 
     service = MT5DemoTradingService(mt5, execution_enabled=False)
-    profile = TradingProfile(auto_analysis_enabled=failure in {"DISCONNECT", "TICK"})
     data = valid_candles(now)
     reasons: list[str] = []
 
@@ -149,6 +148,11 @@ def run_demo_soak(
                 mt5.connected = False
             elif failure == "TICK":
                 mt5.tick_available = False
+        profile = TradingProfile(
+            auto_analysis_enabled=(
+                failure in {"DISCONNECT", "TICK"} and failure_cycle is not None and index >= failure_cycle
+            )
+        )
         result = service.cycle(
             profile=profile,
             **data,
