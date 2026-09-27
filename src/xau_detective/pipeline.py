@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 
+from .candlestick import detect_candlestick_patterns, detect_price_action_moves
 from .data_quality import validate_candles
 from .evidence_engine import build_evidence
 from .evidence_gate import decide_from_evidence
@@ -74,6 +75,8 @@ class MarketAnalysis:
     evidence_contradicting: tuple[str, ...]
     evidence_warnings: tuple[str, ...]
     reward_risk: Decimal | None
+    candlestick_patterns: tuple[str, ...] = ()
+    price_action_moves: tuple[str, ...] = ()
 
 
 def _no_trade(
@@ -149,6 +152,8 @@ def analyze_market(
     h1_structure = analyze_structure(h1)
     m15_features = compute_features(m15, ema_fast_period=9, ema_slow_period=21)
     m15_liquidity = analyze_liquidity(m15)
+    m15_patterns = detect_candlestick_patterns(m15)
+    m15_moves = detect_price_action_moves(m15)
 
     direction = Direction.NO_TRADE
     if h4_regime.trend is TrendState.UP and h1_structure.direction is Direction.BUY:
@@ -256,4 +261,6 @@ def analyze_market(
         tuple(ledger.contradicting),
         tuple(ledger.warnings),
         config.min_reward_risk,
+        tuple(pattern.name for pattern in m15_patterns[-8:]),
+        tuple(move.move.value for move in m15_moves[-8:]),
     )
