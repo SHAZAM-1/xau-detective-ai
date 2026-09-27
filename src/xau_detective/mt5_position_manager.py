@@ -58,8 +58,10 @@ class MT5PositionManager:
     def _matches(self, item: Any) -> bool:
         symbol = str(getattr(item, "symbol", ""))
         magic = getattr(item, "magic", None)
-        return symbol == self._symbol and (
-            magic is None or int(magic) == self._magic
+        return (
+            symbol == self._symbol
+            and magic is not None
+            and int(magic) == self._magic
         )
 
     def _position(self, item: Any) -> PositionSnapshot:
