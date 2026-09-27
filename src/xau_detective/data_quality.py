@@ -26,10 +26,19 @@ def validate_candles(candles: tuple[Candle, ...], expected_interval: timedelta |
             reasons.append("DATA_GAP")
             break
     for candle in candles:
+        if any(price <= 0 for price in (candle.open, candle.high, candle.low, candle.close)):
+            reasons.append("NON_POSITIVE_PRICE")
+            break
+        if candle.volume < 0:
+            reasons.append("NEGATIVE_VOLUME")
+            break
         if candle.high < max(candle.open, candle.close) or candle.low > min(candle.open, candle.close):
             reasons.append("INVALID_OHLC")
             break
         if candle.low > candle.high:
             reasons.append("INVALID_RANGE")
+            break
+        if candle.high == candle.low:
+            reasons.append("ZERO_RANGE_CANDLE")
             break
     return DataQuality(not reasons, tuple(reasons))
