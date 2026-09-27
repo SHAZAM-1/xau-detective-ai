@@ -8,8 +8,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal
-from statistics import mean
-
 from .pattern_study import PatternDatasetRow
 
 
@@ -68,10 +66,8 @@ def _metrics(rows: tuple[PatternDatasetRow, ...] | list[PatternDatasetRow]) -> V
     )
 
 
-def _ordered(rows: tuple[PatternDatasetRow, ...], *, group_by_horizon: bool) -> tuple[PatternDatasetRow, ...]:
-    if group_by_horizon:
-        return tuple(sorted(rows, key=lambda r: (r.timestamp, r.horizon, r.timeframe, r.pattern, r.index)))
-    return tuple(sorted(rows, key=lambda r: (r.timestamp, r.timeframe, r.pattern, r.index)))
+def _ordered(rows: tuple[PatternDatasetRow, ...]) -> tuple[PatternDatasetRow, ...]:
+    return tuple(sorted(rows, key=lambda r: (r.timestamp, r.timeframe, r.pattern, r.index, r.horizon)))
 
 
 def chronological_split(
@@ -85,7 +81,7 @@ def chronological_split(
     if not Decimal(0) < train_fraction < Decimal(1):
         raise ValueError("train_fraction must be between 0 and 1")
 
-    ordered = _ordered(rows, group_by_horizon=False)
+    ordered = _ordered(rows)
     split = int(Decimal(len(ordered)) * train_fraction)
     split = max(1, min(split, len(ordered) - 1))
     return ordered[:split], ordered[split:]
