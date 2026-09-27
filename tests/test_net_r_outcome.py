@@ -22,7 +22,7 @@ def candles():
             Decimal(str(p)),
             Decimal(1),
         )
-        for i, (p, h, l) in enumerate(rows)
+        for i, (p, h, low) in enumerate(rows)
     )
 
 
