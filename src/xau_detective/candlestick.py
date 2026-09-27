@@ -94,8 +94,18 @@ def detect_candlestick_patterns(candles: tuple[Candle, ...]) -> tuple[CandlePatt
         upper_ratio = _upper(c) / rng
         lower_ratio = _lower(c) / rng
 
+        # Pro-Scalper XAUUSD catalog additions: the site lists 25 interactive
+        # candlestick patterns. These are encoded as measurable OHLC features so
+        # the research engine can test them on XAUUSD instead of treating them as
+        # guaranteed signals.
         if body_ratio <= Decimal("0.10"):
             found.append(CandlePattern("DOJI", PatternFamily.SINGLE, "NEUTRAL", Decimal("0.8"), i))
+        if body_ratio <= Decimal("0.30") and upper_ratio >= Decimal("0.25") and lower_ratio >= Decimal("0.25"):
+            found.append(CandlePattern("SPINNING_TOP", PatternFamily.SINGLE, "NEUTRAL", Decimal("0.55"), i))
+        if lower_ratio >= Decimal("0.75") and upper_ratio <= Decimal("0.10"):
+            found.append(CandlePattern("DRAGONFLY_DOJI", PatternFamily.SINGLE, "BULLISH", Decimal("0.78"), i))
+        if upper_ratio >= Decimal("0.75") and lower_ratio <= Decimal("0.10"):
+            found.append(CandlePattern("GRAVESTONE_DOJI", PatternFamily.SINGLE, "BEARISH", Decimal("0.78"), i))
         if lower_ratio >= Decimal("0.60") and body_ratio <= Decimal("0.35"):
             found.append(CandlePattern("HAMMER", PatternFamily.SINGLE, "BULLISH", Decimal("0.75"), i))
         if upper_ratio >= Decimal("0.60") and body_ratio <= Decimal("0.35"):
@@ -115,6 +125,19 @@ def detect_candlestick_patterns(candles: tuple[Candle, ...]) -> tuple[CandlePatt
                 found.append(CandlePattern("BULLISH_ENGULFING", PatternFamily.TWO_CANDLE, "BULLISH", Decimal("0.85"), i))
             if p.bullish and c.bearish and c.open >= p.close and c.close <= p.open and c.body >= p.body * Decimal("0.8"):
                 found.append(CandlePattern("BEARISH_ENGULFING", PatternFamily.TWO_CANDLE, "BEARISH", Decimal("0.85"), i))
+            if p.bullish and c.bearish and c.open < p.close and c.close > p.open and c.body < p.body:
+                found.append(CandlePattern("BEARISH_HARAMI", PatternFamily.TWO_CANDLE, "BEARISH", Decimal("0.62"), i))
+            if p.bearish and c.bullish and c.open > p.close and c.close < p.open and c.body < p.body:
+                found.append(CandlePattern("BULLISH_HARAMI", PatternFamily.TWO_CANDLE, "BULLISH", Decimal("0.62"), i))
+            if abs(c.high - p.high) <= reference * Decimal("0.10") and p.bullish and c.bearish:
+                found.append(CandlePattern("TWEEZER_TOP", PatternFamily.TWO_CANDLE, "BEARISH", Decimal("0.68"), i))
+            if abs(c.low - p.low) <= reference * Decimal("0.10") and p.bearish and c.bullish:
+                found.append(CandlePattern("TWEEZER_BOTTOM", PatternFamily.TWO_CANDLE, "BULLISH", Decimal("0.68"), i))
+            if (p.bullish and c.bearish and c.open < p.open and c.close < p.close) or (
+                p.bearish and c.bullish and c.open > p.open and c.close > p.close
+            ):
+                if abs(c.open - p.close) >= reference * Decimal("0.50"):
+                    found.append(CandlePattern("KICKER", PatternFamily.TWO_CANDLE, "BULLISH" if c.bullish else "BEARISH", Decimal("0.70"), i))
             if p.bearish and c.bullish and c.close > (p.open + p.close) / 2 and c.close < p.open:
                 found.append(CandlePattern("PIERCING", PatternFamily.TWO_CANDLE, "BULLISH", Decimal("0.65"), i))
             if p.bullish and c.bearish and c.close < (p.open + p.close) / 2 and c.close > p.open:
@@ -134,6 +157,18 @@ def detect_candlestick_patterns(candles: tuple[Candle, ...]) -> tuple[CandlePatt
                 found.append(CandlePattern("THREE_WHITE_SOLDIERS", PatternFamily.THREE_CANDLE, "BULLISH", Decimal("0.78"), i))
             if a.bullish and b.bearish and c.bearish and b.close < a.close and c.close < b.close:
                 found.append(CandlePattern("THREE_BLACK_CROWS", PatternFamily.THREE_CANDLE, "BEARISH", Decimal("0.78"), i))
+            if a.bullish and b.bearish and c.bearish and b.high < a.high and b.low > a.low and c.close < b.close:
+                found.append(CandlePattern("THREE_INSIDE_DOWN", PatternFamily.THREE_CANDLE, "BEARISH", Decimal("0.68"), i))
+            if a.bearish and b.bullish and c.bullish and b.high < a.high and b.low > a.low and c.close > b.close:
+                found.append(CandlePattern("THREE_INSIDE_UP", PatternFamily.THREE_CANDLE, "BULLISH", Decimal("0.68"), i))
+            if a.bearish and b.bullish and c.bullish and b.high < a.high and b.low > a.low and c.close > a.open:
+                found.append(CandlePattern("RISING_THREE_METHODS", PatternFamily.THREE_CANDLE, "BULLISH", Decimal("0.65"), i))
+            if a.bullish and b.bearish and c.bearish and b.high < a.high and b.low > a.low and c.close < a.open:
+                found.append(CandlePattern("FALLING_THREE_METHODS", PatternFamily.THREE_CANDLE, "BEARISH", Decimal("0.65"), i))
+            if a.high < b.low and b.high < c.low:
+                found.append(CandlePattern("ABANDONED_BABY_BULL", PatternFamily.THREE_CANDLE, "BULLISH", Decimal("0.72"), i))
+            if a.low > b.high and b.low > c.high:
+                found.append(CandlePattern("ABANDONED_BABY_BEAR", PatternFamily.THREE_CANDLE, "BEARISH", Decimal("0.72"), i))
             if a.high < b.high < c.high and a.low < b.low < c.low:
                 found.append(CandlePattern("THREE_RISING", PatternFamily.THREE_CANDLE, "BULLISH", Decimal("0.65"), i))
             if a.high > b.high > c.high and a.low > b.low > c.low:
