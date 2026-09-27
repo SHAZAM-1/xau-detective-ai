@@ -139,3 +139,76 @@ def detect_candlestick_patterns(candles: tuple[Candle, ...]) -> tuple[CandlePatt
             if a.high > b.high > c.high and a.low > b.low > c.low:
                 found.append(CandlePattern("THREE_FALLING", PatternFamily.THREE_CANDLE, "BEARISH", Decimal("0.65"), i))
     return tuple(found)
+
+    
+def detect_price_action_moves(candles: tuple[Candle, ...], lookback: int = 10) -> tuple[PriceActionEvent, ...]:
+    events = []
+    for i, c in enumerate(candles):
+        prior = candles[max(0, i - lookback):i]
+        if not prior:
+            continue
+        avg_range = sum((_range(x) for x in prior), Decimal(0)) / Decimal(len(prior))
+        if avg_range <= 0:
+            continue
+        strength = _range(c) / avg_range
+
+        if i >= 1 and c.high <= candles[i - 1].high and c.low >= candles[i - 1].low:
+            events.append(PriceActionEvent(PriceActionMove.INSIDE_BAR, "NEUTRAL", Decimal("0.7"), i))
+        elif i >= 1 and c.high >= candles[i - 1].high and c.low <= candles[i - 1].low:
+            events.append(PriceActionEvent(PriceActionMove.OUTSIDE_BAR, "BULLISH" if c.bullish else "BEARISH", Decimal("0.7"), i))
+
+        if strength >= Decimal("1.8"):
+            move = PriceActionMove.IMPULSE_UP if c.bullish else PriceActionMove.IMPULSE_DOWN
+            events.append(PriceActionEvent(PriceActionMove.EXPANSION, "BULLISH" if c.bullish else "BEARISH", strength, i))
+            events.append(PriceActionEvent(move, "BULLISH" if c.bullish else "BEARISH", strength, i))
+        elif strength <= Decimal("0.55"):
+            events.append(PriceActionEvent(PriceActionMove.COMPRESSION, "NEUTRAL", Decimal("0.55"), i))
+
+        if _upper(c) >= c.body * 2 and _upper(c) > _lower(c) * Decimal("1.5"):
+            events.append(PriceActionEvent(PriceActionMove.REJECTION_HIGH, "BEARISH", min(Decimal("1"), _upper(c) / _range(c)), i))
+        if _lower(c) >= c.body * 2 and _lower(c) > _upper(c) * Decimal("1.5"):
+            events.append(PriceActionEvent(PriceActionMove.REJECTION_LOW, "BULLISH", min(Decimal("1"), _lower(c) / _range(c)), i))
+
+        if len(prior) >= 3:
+            high = max(x.high for x in prior)
+            low = min(x.low for x in prior)
+            if c.close > high:
+                events.append(PriceActionEvent(PriceActionMove.BREAKOUT_UP, "BULLISH", strength, i))
+            elif c.close < low:
+                events.append(PriceActionEvent(PriceActionMove.BREAKOUT_DOWN, "BEARISH", strength, i))
+            else:
+                events.append(PriceActionEvent(PriceActionMove.RANGE, "NEUTRAL", Decimal("0.5"), i))
+    return tuple(events)
+
+
+def study_patterns(candles: tuple[Candle, ...], *, horizon: int = 3, threshold: Decimal = Decimal("0.001")) -> tuple[PatternStudy, ...]:
+    """Measure forward outcomes instead of assuming a pattern has predictive power."""
+    patterns = detect_candlestick_patterns(candles)
+    grouped: dict[str, list[Decimal]] = {}
+    for pattern in patterns:
+        if pattern.index + horizon >= len(candles):
+            continue
+        base = candles[pattern.index].close
+        future = candles[pattern.index + horizon].close
+        if base > 0:
+            grouped.setdefault(pattern.name, []).append((future - base) / base)
+
+    studies = []
+    for name, returns in grouped.items():
+        positive = sum(1 for value in returns if value > threshold)
+        negative = sum(1 for value in returns if value < -threshold)
+        neutral = len(returns) - positive - negative
+        studies.append(
+            PatternStudy(
+                pattern=name,
+                observations=len(returns),
+                bullish_follow_through=positive,
+                bearish_follow_through=negative,
+                neutral=neutral,
+                average_forward_return=sum(returns, Decimal(0)) / Decimal(len(returns)),
+                median_forward_return=median(returns),
+                positive_rate=Decimal(positive) / Decimal(len(returns)),
+                sample_horizon=horizon,
+            )
+        )
+    return tuple(sorted(studies, key=lambda item: item.observations, reverse=True))
