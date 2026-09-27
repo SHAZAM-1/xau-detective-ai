@@ -120,6 +120,7 @@ If the requested position cannot be executed while respecting the configured ris
 ## Development status
 
 ### Implemented
+
 - [x] Repository architecture and specifications
 - [x] Deterministic risk engine
 - [x] Broker specification validation
@@ -135,17 +136,22 @@ If the requested position cannot be executed while respecting the configured ris
 - [x] Event-driven backtest engine with spread/commission/slippage modeling
 - [x] Session context features
 - [x] Liquidity reference features
-- [x] GitHub Actions test/lint workflow
+- [x] GitHub Actions project-health CI
 - [x] Project-wide health check with commit impact reporting
+- [x] Core-module import smoke test
 - [x] Deterministic paper-trading engine with broker constraints, execution delay, spread, slippage, commission, and rejection audit
+- [x] Friction-aware Net-R outcome labeling
+- [x] Training-only feature redundancy analysis / anti-double-counting control
 
 ### Implemented environment boundary
+
 - [x] Explicit RESEARCH / DEMO / LIVE environment model
 - [x] MT5 account capability mapping without inferring demo/live from balance
 - [x] Demo execution requires explicit enablement and healthy account/symbol gates
 - [x] Live execution remains locked by the V1 policy
 
-### Next
+### Research / modeling status
+
 - [x] Historical feature/outcome dataset builder
 - [x] Candlestick pattern research lab (forward returns, directional win rate, MFE/MAE, expectancy)
 - [x] Pattern + regime/session/volatility stratified study
@@ -154,7 +160,6 @@ If the requested position cannot be executed while respecting the configured ris
 - [x] Broker-aware deterministic paper-trading / execution simulator
 - [x] Phase 1 leakage-safe calibrated baseline scoring
 - [x] Training-only feature redundancy analysis / anti-double-counting control
-- [ ] Net-R outcome labeling with execution friction
 - [ ] Regularized statistical model
 - [ ] Held-out probability calibration
 - [ ] Calibration drift monitoring
