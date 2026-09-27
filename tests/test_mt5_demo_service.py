@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from types import SimpleNamespace
 
@@ -58,9 +58,10 @@ class FakeMT5:
 
 
 def candles():
+    start = datetime(2026, 9, 26, 10, tzinfo=timezone.utc)
     return tuple(
         SimpleNamespace(
-            timestamp=datetime(2026, 9, 26, 10 + i, tzinfo=timezone.utc),
+            timestamp=start + timedelta(hours=i),
             open=Decimal("4000"),
             high=Decimal("4002"),
             low=Decimal("3998"),
