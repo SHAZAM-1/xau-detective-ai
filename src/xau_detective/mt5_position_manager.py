@@ -11,6 +11,8 @@ from typing import Any
 
 
 @dataclass(frozen=True)
+
+
 class PositionSnapshot:
     ticket: str
     symbol: str
@@ -23,6 +25,8 @@ class PositionSnapshot:
 
 
 @dataclass(frozen=True)
+
+
 class OrderSnapshot:
     ticket: str
     symbol: str
@@ -34,6 +38,8 @@ class OrderSnapshot:
 
 
 @dataclass(frozen=True)
+
+
 class LifecycleSnapshot:
     positions: tuple[PositionSnapshot, ...]
     orders: tuple[OrderSnapshot, ...]
