@@ -99,7 +99,7 @@ class MetaTrader5DemoGateway:
         placed = getattr(self._mt5, "TRADE_RETCODE_PLACED", 10008)
         if retcode not in {done, placed}:
             comment = str(getattr(result, "comment", "MT5_ORDER_REJECTED"))
-            raise RuntimeError(f"MT5_ORDER_REJECTED:{retcode}:{comment}")
+            raise RuntimeError("MT5_ORDER_REJECTED:%s:%s" % (retcode, comment or "MT5_ORDER_REJECTED"))
 
         order_id = getattr(result, "order", None)
         if order_id is None:
