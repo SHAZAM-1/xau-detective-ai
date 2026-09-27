@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from math import sqrt
 
+
 @dataclass(frozen=True)
 class FeatureSeries:
     """A point-in-time feature series aligned by timestamp."""
@@ -29,6 +30,7 @@ class FeatureSeries:
         if len(self.timestamps) != len(self.values):
             raise ValueError("timestamps and values must have equal length")
 
+
 @dataclass(frozen=True)
 class RedundancyConfig:
     correlation_threshold: Decimal = Decimal("0.85")
@@ -40,6 +42,7 @@ class RedundancyConfig:
         if self.min_observations < 2:
             raise ValueError("min_observations must be at least 2")
 
+
 @dataclass(frozen=True)
 class RedundantFeaturePair:
     left: str
@@ -49,17 +52,20 @@ class RedundantFeaturePair:
     same_evidence_family: bool
     reason: str
 
+
 @dataclass(frozen=True)
 class RedundancyCluster:
     cluster_id: int
     features: tuple[str, ...]
     representative: str
 
+
 @dataclass(frozen=True)
 class RedundancyReport:
     pairs: tuple[RedundantFeaturePair, ...]
     clusters: tuple[RedundancyCluster, ...]
     insufficient_pairs: int
+
 
 def _pearson(values_a: tuple[Decimal, ...], values_b: tuple[Decimal, ...]) -> Decimal | None:
     if len(values_a) != len(values_b) or len(values_a) < 2:
@@ -78,6 +84,7 @@ def _pearson(values_a: tuple[Decimal, ...], values_b: tuple[Decimal, ...]) -> De
         return None
     return numerator / denominator
 
+
 def _aligned(left: FeatureSeries, right: FeatureSeries) -> tuple[tuple[Decimal, ...], tuple[Decimal, ...]]:
     right_by_timestamp = {timestamp: value for timestamp, value in zip(right.timestamps, right.values) if value is not None}
     left_values: list[Decimal] = []
@@ -91,6 +98,7 @@ def _aligned(left: FeatureSeries, right: FeatureSeries) -> tuple[tuple[Decimal, 
         left_values.append(value)
         right_values.append(counterpart)
     return tuple(left_values), tuple(right_values)
+
 
 def analyze_redundancy(series: tuple[FeatureSeries, ...], *, config: RedundancyConfig = RedundancyConfig(), priority: dict[str, int] | None = None) -> RedundancyReport:
     """Analyze pairwise redundancy using only the supplied training series.
