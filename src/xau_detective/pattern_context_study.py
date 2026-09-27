@@ -11,7 +11,7 @@ from decimal import Decimal
 
 from .candlestick import detect_candlestick_patterns
 from .market import Candle
-from .regime import TrendState, VolatilityState, classify_regime
+from .regime import classify_regime
 from .session import classify_session
 
 
@@ -64,7 +64,6 @@ def build_context_dataset(
     for timeframe, candles in sorted(candles_by_timeframe.items()):
         for pattern in detect_candlestick_patterns(candles):
             index = pattern.index
-            # Context is calculated using data through the pattern candle only.
             prefix = candles[: index + 1]
             if not prefix:
                 continue
