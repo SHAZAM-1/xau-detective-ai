@@ -59,9 +59,7 @@ class MetaTrader5DemoGateway:
             "deviation": self._deviation,
             "magic": self._magic,
             "comment": self._comment,
-            "type_time": getattr(
-                self._mt5, "ORDER_TIME_GTC", 0
-            ),
+            "type_time": getattr(self._mt5, "ORDER_TIME_GTC", 0),
             "type_filling": self._filling_mode(intent.symbol),
         }
 
@@ -69,16 +67,12 @@ class MetaTrader5DemoGateway:
         info = self._mt5.symbol_info(symbol)
         if info is None:
             raise ValueError("SYMBOL_INFO_UNAVAILABLE")
-        flags = int(getattr(info, "filling_mode", 0) or 0)
-        fok = getattr(self._mt5, "ORDER_FILLING_FOK", 0)
-        ioc = getattr(self._mt5, "ORDER_FILLING_IOC", 1)
-        if flags & int(fok):
-            return int(fok)
-        if flags & int(ioc):
-            return int(ioc)
-        return int(ioc)
+        mode = getattr(info, "filling_mode", None)
+        if mode is not None:
+            return int(mode)
+        return int(getattr(self._mt5, "ORDER_FILLING_IOC", 1))
 
-    def send_order_detailed(self, intent: TradeIntent) -> MT5OrderResponse:
+    def _send(self, intent: TradeIntent) -> MT5OrderResponse:
         request = self.build_request(intent)
         order_check = getattr(self._mt5, "order_check", None)
         if callable(order_check):
@@ -98,15 +92,44 @@ class MetaTrader5DemoGateway:
             raise RuntimeError("MT5_ORDER_SEND_RETURNED_NONE")
 
         retcode = int(getattr(result, "retcode", -1))
-        done = getattr(self._mt5, "TRADE_RETCODE_DONE", 10009)
-        placed = getattr(self._mt5, "TRADE_RETCODE_PLACED", 10008)
+        done = int(getattr(self._mt5, "TRADE_RETCODE_DONE", 10009))
+        placed = int(getattr(self._mt5, "TRADE_RETCODE_PLACED", 10008))
         if retcode not in {done, placed}:
             comment = str(getattr(result, "comment", "MT5_ORDER_REJECTED"))
-            raise RuntimeError("MT5_ORDER_REJECTED:%s:%s" % (retcode, comment or "MT5_ORDER_REJECTED"))
+            raise RuntimeError(
+                f"MT5_ORDER_REJECTED:{retcode}:{comment or 'MT5_ORDER_REJECTED'}"
+            )
 
         order_id = getattr(result, "order", None)
-        if order_id is None:
-            order_id = getattr(result, "deal", None)
-        if order_id is None:
+        deal_id = getattr(result, "deal", None)
+        if order_id is None and deal_id is None:
             raise RuntimeError("MT5_ORDER_ACCEPTED_WITHOUT_ID")
-        return str(order_id)
+
+        return MT5OrderResponse(
+            accepted=True,
+            order_id=str(order_id) if order_id is not None else None,
+            deal_id=str(deal_id) if deal_id is not None else None,
+            filled_volume=(
+                Decimal(str(getattr(result, "volume", intent.volume)))
+                if getattr(result, "volume", None) is not None
+                else None
+            ),
+            price=(
+                Decimal(str(getattr(result, "price", intent.entry)))
+                if getattr(result, "price", None) is not None
+                else None
+            ),
+            retcode=retcode,
+            comment=str(getattr(result, "comment", "")),
+        )
+
+    def send_order_detailed(self, intent: TradeIntent) -> MT5OrderResponse:
+        return self._send(intent)
+
+    def send_order(self, intent: TradeIntent) -> str:
+        response = self._send(intent)
+        if response.order_id is not None:
+            return response.order_id
+        if response.deal_id is not None:
+            return response.deal_id
+        raise RuntimeError("MT5_ORDER_ACCEPTED_WITHOUT_ID")
