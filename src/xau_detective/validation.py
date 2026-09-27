@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal
+
 from .pattern_study import PatternDatasetRow
 
 
@@ -41,7 +42,9 @@ class WalkForwardFold:
     test: ValidationMetrics
 
 
-def _metrics(rows: tuple[PatternDatasetRow, ...] | list[PatternDatasetRow]) -> ValidationMetrics:
+def _metrics(
+    rows: tuple[PatternDatasetRow, ...] | list[PatternDatasetRow],
+) -> ValidationMetrics:
     if not rows:
         return ValidationMetrics(0, 0, Decimal(0), Decimal(0), Decimal(0), Decimal(0))
 
@@ -67,7 +70,9 @@ def _metrics(rows: tuple[PatternDatasetRow, ...] | list[PatternDatasetRow]) -> V
 
 
 def _ordered(rows: tuple[PatternDatasetRow, ...]) -> tuple[PatternDatasetRow, ...]:
-    return tuple(sorted(rows, key=lambda r: (r.timestamp, r.timeframe, r.pattern, r.index, r.horizon)))
+    return tuple(
+        sorted(rows, key=lambda r: (r.timestamp, r.timeframe, r.pattern, r.index, r.horizon))
+    )
 
 
 def chronological_split(
@@ -126,7 +131,7 @@ def walk_forward(
     if step <= 0:
         raise ValueError("step_size must be positive")
 
-    ordered = _ordered(rows, group_by_horizon=False)
+    ordered = _ordered(rows)
     folds: list[WalkForwardFold] = []
     start = 0
     fold_number = 1
@@ -164,23 +169,37 @@ def aggregate_test_metrics(folds: tuple[WalkForwardFold, ...]) -> ValidationMetr
         if current.test_start_index <= previous.test_end_index:
             raise ValueError("aggregate_test_metrics requires non-overlapping test windows")
 
-    # The caller's folds do not expose original rows, so aggregate weighted
-    # metrics from fold summaries. MFE/MAE and expectancy are observation-weighted.
     total = sum(fold.test.observations for fold in folds)
     if total == 0:
         return _metrics(())
 
     wins = sum(fold.test.directional_wins for fold in folds)
     expectancy = sum(
-        (fold.test.expectancy * Decimal(fold.test.observations) for fold in folds),
+        (
+            fold.test.expectancy * Decimal(fold.test.observations)
+            for fold in folds
+        ),
         Decimal(0),
     ) / Decimal(total)
     mfe = sum(
-        (fold.test.average_mfe * Decimal(fold.test.observations) for fold in folds),
+        (
+            fold.test.average_mfe * Decimal(fold.test.observations)
+            for fold in folds
+        ),
         Decimal(0),
     ) / Decimal(total)
     mae = sum(
-        (fold.test.average_mae * Decimal(fold.test.observations) for fold in folds),
+        (
+            fold.test.average_mae * Decimal(fold.test.observations)
+            for fold in folds
+        ),
         Decimal(0),
     ) / Decimal(total)
-    return ValidationMetrics(total, wins, Decimal(wins) / Decimal(total), expectancy, mfe, mae)
+    return ValidationMetrics(
+        total,
+        wins,
+        Decimal(wins) / Decimal(total),
+        expectancy,
+        mfe,
+        mae,
+    )
