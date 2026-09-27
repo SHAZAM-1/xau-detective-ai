@@ -25,7 +25,8 @@ def test_context_study_is_point_in_time_safe_and_stratified():
     assert rows
     assert {row.timeframe for row in rows} == {"M5"}
     assert all(row.horizon in {1, 3} for row in rows)
-    timestamps = {item.timestamp for item in candles}\n    assert all(row.timestamp in timestamps for row in rows)
+    timestamps = {item.timestamp for item in candles}
+    assert all(row.timestamp in timestamps for row in rows)
 
     studies = study_pattern_context({"M5": candles}, horizons=(1, 3))
     assert studies
