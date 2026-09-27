@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from .candlestick import detect_candlestick_patterns, detect_price_action_moves
+from .candlestick import detect_candlestick_patterns, detect_price_action_moves, interpret_pattern_read
 from .data_quality import validate_candles
 from .evidence_engine import build_evidence
 from .evidence_gate import decide_from_evidence
@@ -44,6 +44,7 @@ class AnalysisConfig:
     score_evidence_weight: int = 25
     score_reward_risk_weight: int = 15
     score_session_weight: int = 10
+    allowed_sessions: tuple[str, ...] = ("LONDON", "NEW_YORK")
 
     @classmethod
     def from_profile(cls, profile: TradingProfile, *, safety_margin: Decimal = Decimal("0.90"), max_daily_loss: Decimal | None = Decimal("0.02")) -> AnalysisConfig:
@@ -60,6 +61,7 @@ class AnalysisConfig:
             max_slippage=profile.max_slippage,
             min_reward_risk=profile.min_reward_risk,
             stop_atr_multiple=profile.stop_atr_multiple,
+            allowed_sessions=profile.allowed_sessions,
         )
 
 
@@ -122,6 +124,8 @@ def analyze_market(
     config = config or AnalysisConfig()
     timestamp = now or datetime.now(UTC)
     session = classify_session(timestamp).label
+    if session not in config.allowed_sessions:
+        return _no_trade(f"SESSION_NOT_ALLOWED:{session}", timestamp, session=session)
     datasets = (
         (Timeframe.D1, d1),
         (Timeframe.H4, h4),
@@ -154,6 +158,7 @@ def analyze_market(
     m15_liquidity = analyze_liquidity(m15)
     m15_patterns = detect_candlestick_patterns(m15)
     m15_moves = detect_price_action_moves(m15)
+    m15_pattern_read = interpret_pattern_read(m15)
 
     direction = Direction.NO_TRADE
     if h4_regime.trend is TrendState.UP and h1_structure.direction is Direction.BUY:
@@ -170,6 +175,13 @@ def analyze_market(
         and d1_regime.trend is TrendState.UP
     ):
         return _no_trade("D1_CONTEXT_CONFLICT", timestamp, session=session)
+
+    if "PATTERN_CONFLICT_LATEST_CANDLE" in m15_pattern_read.warnings:
+        return _no_trade("PATTERN_CONFLICT_LATEST_CANDLE", timestamp, session=session)
+    if m15_pattern_read.direction == "BULLISH" and direction is not Direction.BUY:
+        return _no_trade("M15_PATTERN_DIRECTION_CONFLICT", timestamp, session=session)
+    if m15_pattern_read.direction == "BEARISH" and direction is not Direction.SELL:
+        return _no_trade("M15_PATTERN_DIRECTION_CONFLICT", timestamp, session=session)
 
     if m15_features.momentum is None or m15_features.atr is None:
         return _no_trade("M15_FEATURES_UNAVAILABLE", timestamp, session=session)
