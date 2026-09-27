@@ -123,7 +123,13 @@ def study_patterns(
         bullish = sum(item.forward_returns[-1] > 0 for item in items)
         bearish = sum(item.forward_returns[-1] < 0 for item in items)
         neutral = len(items) - bullish - bearish
-        directional_wins = sum(\n            (item.forward_returns[-1] > 0 if item.direction == "BULLISH" else\n             item.forward_returns[-1] < 0 if item.direction == "BEARISH" else\n             item.forward_returns[-1] > 0)\n            for item in items\n        )\n        directional_win_rate = Decimal(directional_wins) / Decimal(len(items))
+        directional_wins = sum(
+            (item.forward_returns[-1] > 0 if item.direction == "BULLISH" else
+             item.forward_returns[-1] < 0 if item.direction == "BEARISH" else
+             item.forward_returns[-1] > 0)
+            for item in items
+        )
+        directional_win_rate = Decimal(directional_wins) / Decimal(len(items))
 
         directional_values: list[Decimal] = []
         for item in items:
