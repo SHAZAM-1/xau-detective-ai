@@ -145,6 +145,7 @@ If the requested position cannot be executed while respecting the configured ris
 ### Next
 - [x] Historical feature/outcome dataset builder\n- [x] Candlestick pattern research lab (forward returns, directional win rate, MFE/MAE, expectancy)\n- [ ] Pattern + regime/session/volatility stratified study
 - [ ] Walk-forward evaluation
+- [x] Monte Carlo drawdown / ruin stress testing
 - [ ] Calibrated statistical scoring
 - [ ] Paper-trading pipeline
 - [ ] Broker-aware execution simulator
