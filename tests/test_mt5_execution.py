@@ -13,7 +13,10 @@ class FakeMT5:
     ORDER_TYPE_BUY = 0
     ORDER_TYPE_SELL = 1
     ORDER_TIME_GTC = 0
+    ORDER_FILLING_FOK = 0
     ORDER_FILLING_IOC = 1
+    SYMBOL_FILLING_FOK = 1
+    SYMBOL_FILLING_IOC = 2
     TRADE_RETCODE_DONE = 10009
     TRADE_RETCODE_PLACED = 10008
 
@@ -63,7 +66,7 @@ def test_build_buy_request_maps_trade_intent():
     assert request["tp"] == 4010.10
     assert request["magic"] == 42
     assert request["deviation"] == 7
-    assert request["type_filling"] == 2
+    assert request["type_filling"] == mt5.ORDER_FILLING_IOC
 
 
 def test_send_order_returns_mt5_order_id():
@@ -117,3 +120,23 @@ def test_send_order_detailed_exposes_order_deal_volume_and_price():
     assert response.filled_volume == Decimal("0.01")
     assert response.price == Decimal("4000.25")
     assert response.retcode == 10009
+
+
+def test_build_request_maps_filling_bitmask_to_fok_enum():
+    class FokMT5(FakeMT5):
+        def symbol_info(self, symbol):
+            return SimpleNamespace(filling_mode=self.SYMBOL_FILLING_FOK)
+
+    mt5 = FokMT5(SimpleNamespace(retcode=10009, order=123))
+    request = MetaTrader5DemoGateway(mt5).build_request(intent())
+    assert request["type_filling"] == mt5.ORDER_FILLING_FOK
+
+
+def test_build_request_rejects_unsupported_filling_mode():
+    class UnsupportedMT5(FakeMT5):
+        def symbol_info(self, symbol):
+            return SimpleNamespace(filling_mode=8)
+
+    mt5 = UnsupportedMT5(SimpleNamespace(retcode=10009, order=123))
+    with pytest.raises(ValueError, match="NO_SUPPORTED_MARKET_FILLING_MODE"):
+        MetaTrader5DemoGateway(mt5).build_request(intent())
