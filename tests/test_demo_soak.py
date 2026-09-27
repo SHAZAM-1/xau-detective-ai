@@ -13,12 +13,14 @@ def test_soak_runs_repeated_cycles_without_orders_when_analysis_disabled():
 def test_soak_fails_closed_on_connection_loss():
     result = run_demo_soak(cycles=20, failure_cycle=7, failure="DISCONNECT")
     assert result.cycles == 20
-    assert all(reason == "MT5_CONNECTION_UNHEALTHY" for reason in result.reasons)
+    assert result.reasons[:7] == ("AUTO_ANALYSIS_DISABLED",) * 7
+    assert result.reasons[7:] == ("MT5_CONNECTION_UNHEALTHY",) * 13
 
 
 def test_soak_fails_closed_on_missing_tick():
     result = run_demo_soak(cycles=10, failure_cycle=3, failure="TICK")
-    assert all(reason == "MT5_TICK_UNAVAILABLE" for reason in result.reasons)
+    assert result.reasons[:3] == ("AUTO_ANALYSIS_DISABLED",) * 3
+    assert result.reasons[3:] == ("MT5_TICK_UNAVAILABLE",) * 7
 
 
 def test_soak_rejects_live_environment():

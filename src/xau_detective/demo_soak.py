@@ -133,11 +133,7 @@ def run_demo_soak(
 
     now = datetime(2026, 9, 27, 12, tzinfo=UTC)
     mt5 = ScriptedMT5()
-    if failure == "DISCONNECT":
-        mt5.connected = False
-    elif failure == "TICK":
-        mt5.tick_available = False
-    elif failure == "LIVE":
+    if failure == "LIVE":
         mt5.trade_mode = ScriptedMT5.ACCOUNT_TRADE_MODE_REAL
         mt5.account.trade_mode = mt5.trade_mode
 
