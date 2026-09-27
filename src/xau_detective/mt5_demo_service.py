@@ -7,6 +7,7 @@ validated Demo orders. Live execution is rejected by policy.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any
 
 from .broker_execution_gate import BrokerExecutionGate
@@ -18,6 +19,7 @@ from .mt5_adapter import (
     execution_snapshot_from_mt5,
 )
 from .mt5_execution import MetaTrader5DemoGateway
+from .mt5_position_manager import LifecycleSnapshot, MT5PositionManager
 from .mt5_session import MT5SessionMonitor
 from .pipeline import MarketAnalysis
 from .trade_journal import InMemoryTradeJournal, TradeJournal, journal_entry_from_intent
@@ -47,16 +49,22 @@ class MT5DemoTradingService:
         self._mt5 = mt5_module
         self._symbol = symbol
         self._execution_enabled = execution_enabled
+        self._magic = magic
         self._session = MT5SessionMonitor()
         self._executor = DemoOrderExecutor(
             MetaTrader5DemoGateway(mt5_module, magic=magic)
         )
         self._execution_gate = BrokerExecutionGate()
         self._journal = journal or InMemoryTradeJournal()
+        self._positions = MT5PositionManager(mt5_module, symbol=symbol, magic=magic)
 
     @property
     def session(self) -> MT5SessionMonitor:
         return self._session
+
+    def lifecycle(self) -> LifecycleSnapshot:
+        """Return the latest broker-reported orders and positions for this bot."""
+        return self._positions.snapshot()
 
     def cycle(
         self,
@@ -71,6 +79,9 @@ class MT5DemoTradingService:
         idempotency_key: str,
         user_intent: TradeIntent | None = None,
     ) -> DemoCycleResult:
+        if now is None:
+            now = datetime.now(UTC)
+
         account_info = self._mt5.account_info()
         if account_info is None:
             return DemoCycleResult(False, None, None, "MT5_ACCOUNT_INFO_UNAVAILABLE")
@@ -161,6 +172,14 @@ class MT5DemoTradingService:
             estimated_slippage=execution.estimated_slippage,
         )
         if not gate.allowed:
+            self._journal.append(
+                journal_entry_from_intent(
+                    intent=intent,
+                    status="REJECTED",
+                    reason=gate.reason,
+                    timestamp=now,
+                )
+            )
             return DemoCycleResult(changed, analysis, None, gate.reason)
 
         order = self._executor.execute(
