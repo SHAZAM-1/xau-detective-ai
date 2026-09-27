@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from decimal import Decimal
 from typing import Any
 
 from .mt5_position_manager import LifecycleSnapshot, MT5PositionManager
@@ -91,7 +92,10 @@ class MT5TradeReconciler:
             position = self._positions.find_ticket(position_id)
             if position is not None and hasattr(position, "volume"):
                 volume = str(position.volume)
-                if requested_volume is not None and volume != requested_volume:
+                if (
+                    requested_volume is not None
+                    and Decimal(volume) != Decimal(requested_volume)
+                ):
                     return ReconciliationResult(
                         TradeLifecycleState.PARTIAL_FILL,
                         order_id,
