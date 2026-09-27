@@ -14,7 +14,7 @@ def test_soak_fails_closed_on_connection_loss():
     result = run_demo_soak(cycles=20, failure_cycle=7, failure="DISCONNECT")
     assert result.cycles == 20
     assert result.reasons[:7] == ("AUTO_ANALYSIS_DISABLED",) * 7
-    assert result.reasons[7:] == ("MT5_CONNECTION_UNHEALTHY",) * 13
+    assert result.reasons[7:] == ("MT5_NOT_CONNECTED",) * 13
 
 
 def test_soak_fails_closed_on_missing_tick():
