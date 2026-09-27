@@ -15,6 +15,28 @@ class PatternFamily(str, Enum):
     THREE_CANDLE = "THREE_CANDLE"
 
 
+PRO_SCALPER_CANDLESTICK_PATTERNS: tuple[str, ...] = (
+    "BULLISH_ENGULFING", "BEARISH_ENGULFING", "HAMMER", "SHOOTING_STAR",
+    "DOJI", "PIN_BAR", "MORNING_STAR", "EVENING_STAR",
+    "THREE_WHITE_SOLDIERS", "THREE_BLACK_CROWS", "DRAGONFLY_DOJI",
+    "GRAVESTONE_DOJI", "INSIDE_BAR", "OUTSIDE_BAR", "HARAMI",
+    "TWEEZER_TOP", "TWEEZER_BOTTOM", "SPINNING_TOP", "MARUBOZU_BULL",
+    "MARUBOZU_BEAR", "DARK_CLOUD_COVER", "PIERCING",
+    "RISING_THREE_METHODS", "FALLING_THREE_METHODS", "KICKER",
+    "ABANDONED_BABY_BULL", "ABANDONED_BABY_BEAR",
+)
+
+# Pro-Scalper also exposes 20 chart-pattern guides. These names form the
+# research registry; chart-geometry detectors should be added separately and
+# validated on XAUUSD before affecting decisions.
+PRO_SCALPER_CHART_PATTERNS: tuple[str, ...] = (
+    "DIAMOND", "ASCENDING_TRIANGLE", "INVERSE_HEAD_SHOULDERS",
+    "BUTTERFLY", "DOUBLE_BOTTOM", "RISING_WEDGE", "TRIPLE_TOP",
+    "FALLING_WEDGE", "FLAG", "ROUNDING_BOTTOM", "DESCENDING_TRIANGLE",
+    "HEAD_SHOULDERS", "RECTANGLE", "PENNANT", "ABCD", "BUMP_AND_RUN_REVERSAL",
+    "DOUBLE_TOP", "GARTLEY", "SYMMETRICAL_TRIANGLE", "TRIPLE_BOTTOM",
+)
+
 class PriceActionMove(str, Enum):
     IMPULSE_UP = "IMPULSE_UP"
     IMPULSE_DOWN = "IMPULSE_DOWN"
@@ -110,6 +132,10 @@ def detect_candlestick_patterns(candles: tuple[Candle, ...]) -> tuple[CandlePatt
             found.append(CandlePattern("HAMMER", PatternFamily.SINGLE, "BULLISH", Decimal("0.75"), i))
         if upper_ratio >= Decimal("0.60") and body_ratio <= Decimal("0.35"):
             found.append(CandlePattern("SHOOTING_STAR", PatternFamily.SINGLE, "BEARISH", Decimal("0.75"), i))
+        if (upper_ratio >= Decimal("0.55") and lower_ratio <= Decimal("0.20")):
+            found.append(CandlePattern("PIN_BAR_BEAR", PatternFamily.SINGLE, "BEARISH", Decimal("0.72"), i))
+        if (lower_ratio >= Decimal("0.55") and upper_ratio <= Decimal("0.20")):
+            found.append(CandlePattern("PIN_BAR_BULL", PatternFamily.SINGLE, "BULLISH", Decimal("0.72"), i))
         if upper_ratio >= Decimal("0.60") and lower_ratio <= Decimal("0.15") and c.bearish:
             found.append(CandlePattern("INVERTED_HAMMER", PatternFamily.SINGLE, "BULLISH", Decimal("0.60"), i))
         if lower_ratio >= Decimal("0.60") and upper_ratio <= Decimal("0.15") and c.bullish:
