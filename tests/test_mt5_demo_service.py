@@ -1,4 +1,4 @@
-from datetime datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from types import SimpleNamespace
 
@@ -21,7 +21,7 @@ class FakeMT5:
     ORDER_FILLING_IOC = 1
     TRADE_RETCODE_DONE = 10009
 
-    def __init__(self, trade_mode=0):
+    def __init__(self, trade_mode=0, deals=()):
         self.account = SimpleNamespace(
             login=123,
             server="Demo",
@@ -32,6 +32,7 @@ class FakeMT5:
             margin_free=900,
         )
         self.sent = []
+        self.deals = deals
 
     def account_info(self):
         return self.account
@@ -132,13 +133,20 @@ def test_service_respects_auto_analysis_disabled():
 
 def test_service_handles_mt5_account_exception():
     mt5 = FakeMT5()
+
     def broken_account_info():
         raise RuntimeError("connection lost")
+
     mt5.account_info = broken_account_info
     service = MT5DemoTradingService(mt5)
     result = service.cycle(
-        profile=TradingProfile(), d1=candles(), h4=candles(), h1=candles(),
-        m15=candles(), m5=candles(), now=datetime(2026, 9, 26, 12, tzinfo=timezone.utc),
+        profile=TradingProfile(),
+        d1=candles(),
+        h4=candles(),
+        h1=candles(),
+        m15=candles(),
+        m5=candles(),
+        now=datetime(2026, 9, 26, 12, tzinfo=timezone.utc),
         idempotency_key="broken-account",
     )
     assert result.reason == "MT5_ACCOUNT_INFO_UNAVAILABLE"
@@ -146,13 +154,20 @@ def test_service_handles_mt5_account_exception():
 
 def test_service_handles_mt5_tick_exception():
     mt5 = FakeMT5()
+
     def broken_tick(symbol):
         raise RuntimeError("tick unavailable")
+
     mt5.symbol_info_tick = broken_tick
     service = MT5DemoTradingService(mt5)
     result = service.cycle(
-        profile=TradingProfile(), d1=candles(), h4=candles(), h1=candles(),
-        m15=candles(), m5=candles(), now=datetime(2026, 9, 26, 12, tzinfo=timezone.utc),
+        profile=TradingProfile(),
+        d1=candles(),
+        h4=candles(),
+        h1=candles(),
+        m15=candles(),
+        m5=candles(),
+        now=datetime(2026, 9, 26, 12, tzinfo=timezone.utc),
         idempotency_key="broken-tick",
     )
     assert result.reason == "MT5_TICK_UNAVAILABLE"
@@ -188,9 +203,16 @@ def seed_pending(journal, key="recovery-1"):
 def test_recovery_records_open_position_without_resubmitting():
     mt5 = FakeMT5()
     mt5.positions_get = lambda *, symbol: (
-        SimpleNamespace(ticket=777, symbol=symbol, volume=Decimal("0.02"),
-                        price_open=Decimal("4000"), sl=Decimal("3990"), tp=Decimal("4020"),
-                        magic=260926, comment="xau-detective-demo"),
+        SimpleNamespace(
+            ticket=777,
+            symbol=symbol,
+            volume=Decimal("0.02"),
+            price_open=Decimal("4000"),
+            sl=Decimal("3990"),
+            tp=Decimal("4020"),
+            magic=260926,
+            comment="xau-detective-demo",
+        ),
     )
     mt5.orders_get = lambda *, symbol: ()
     journal = InMemoryTradeJournal()
@@ -206,9 +228,16 @@ def test_recovery_records_open_position_without_resubmitting():
 def test_recovery_records_partial_fill():
     mt5 = FakeMT5()
     mt5.positions_get = lambda *, symbol: (
-        SimpleNamespace(ticket=777, symbol=symbol, volume=Decimal("0.01"),
-                        price_open=Decimal("4000"), sl=Decimal("3990"), tp=Decimal("4020"),
-                        magic=260926, comment="xau-detective-demo"),
+        SimpleNamespace(
+            ticket=777,
+            symbol=symbol,
+            volume=Decimal("0.01"),
+            price_open=Decimal("4000"),
+            sl=Decimal("3990"),
+            tp=Decimal("4020"),
+            magic=260926,
+            comment="xau-detective-demo",
+        ),
     )
     mt5.orders_get = lambda *, symbol: ()
     journal = InMemoryTradeJournal()
@@ -224,8 +253,15 @@ def test_recovery_records_pending_order():
     mt5 = FakeMT5()
     mt5.positions_get = lambda *, symbol: ()
     mt5.orders_get = lambda *, symbol: (
-        SimpleNamespace(ticket=777, symbol=symbol, volume_current=Decimal("0.02"),
-                        price_open=Decimal("4000"), magic=260926, comment="xau-detective-demo", state="STARTED"),
+        SimpleNamespace(
+            ticket=777,
+            symbol=symbol,
+            volume_current=Decimal("0.02"),
+            price_open=Decimal("4000"),
+            magic=260926,
+            comment="xau-detective-demo",
+            state="STARTED",
+        ),
     )
     journal = InMemoryTradeJournal()
     seed_pending(journal)
