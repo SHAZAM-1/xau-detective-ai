@@ -37,6 +37,8 @@ class BrokerExecutionGate:
             return ExecutionGateResult(False, "MT5_CONNECTION_UNHEALTHY")
         if not capabilities.trading_allowed:
             return ExecutionGateResult(False, "ACCOUNT_TRADING_DISABLED")
+        if not capabilities.execution_enabled:
+            return ExecutionGateResult(False, "DEMO_EXECUTION_NOT_ENABLED")
         if not capabilities.symbol_available:
             return ExecutionGateResult(False, "SYMBOL_UNAVAILABLE")
         if symbol_info is None:
