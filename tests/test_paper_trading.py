@@ -3,11 +3,7 @@ from decimal import Decimal
 
 from xau_detective.market import Candle
 from xau_detective.models import BrokerSpec, Direction
-from xau_detective.paper_trading import (
-    PaperTradePlan,
-    PaperTradingConfig,
-    run_paper_trading,
-)
+from xau_detective.paper_trading import PaperTradePlan, PaperTradingConfig, run_paper_trading
 
 
 BROKER = BrokerSpec(
@@ -26,7 +22,7 @@ BROKER = BrokerSpec(
 def _candles():
     return (
         Candle(datetime(2026, 1, 1, 0, 0, tzinfo=UTC), Decimal("3000"), Decimal("3001"), Decimal("2999"), Decimal("3000"), 1),
-        Candle(datetime(2026, 1, 1, 0, 1, tzinfo=UTC), Decimal("3000"), Decimal("3015"), Decimal("2995"), Decimal("3010"), 1),
+        Candle(datetime(2026, 1, 1, 0, 1, tzinfo=UTC), Decimal("3000"), Decimal("3015"), Decimal("3000"), Decimal("3010"), 1),
         Candle(datetime(2026, 1, 1, 0, 2, tzinfo=UTC), Decimal("3010"), Decimal("3025"), Decimal("3005"), Decimal("3020"), 1),
     )
 
