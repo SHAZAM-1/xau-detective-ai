@@ -25,6 +25,8 @@ class TradeLifecycleState(str, Enum):
 
 
 @dataclass(frozen=True)
+
+
 class ReconciliationResult:
     state: TradeLifecycleState
     order_id: str | None

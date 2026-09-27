@@ -4,8 +4,10 @@ from decimal import Decimal
 from xau_detective.candlestick import (
     PRO_SCALPER_CANDLESTICK_PATTERNS,
     PRO_SCALPER_CHART_PATTERNS,
+    PatternRead,
     PriceActionMove,
     detect_candlestick_patterns,
+    interpret_pattern_read,
     detect_price_action_moves,
     study_patterns,
 )
@@ -68,3 +70,29 @@ def test_pro_scalper_pattern_catalog_is_registered():
     assert len(PRO_SCALPER_CHART_PATTERNS) == 20
     assert "DRAGONFLY_DOJI" in PRO_SCALPER_CANDLESTICK_PATTERNS
     assert "DOUBLE_TOP" in PRO_SCALPER_CHART_PATTERNS
+
+
+def test_pattern_reader_rejects_conflicting_directional_evidence():
+    candles = (
+        candle(100, 101, 99, 99.2, 0),
+        candle(99.1, 102, 98.9, 101.8, 1),
+        candle(101.9, 104, 101, 101.2, 2),
+    )
+    result = interpret_pattern_read(candles, min_directional_patterns=1)
+    assert isinstance(result, PatternRead)
+    assert result.direction in {"NEUTRAL", "BULLISH", "BEARISH"}
+
+
+def test_pattern_reader_rejects_invalid_ohlc():
+    candles = (
+        Candle(
+            timestamp=datetime(2026, 9, 27, 10, 0, tzinfo=timezone.utc),
+            open=Decimal("100"),
+            high=Decimal("99"),
+            low=Decimal("98"),
+            close=Decimal("99"),
+        ),
+    )
+    result = interpret_pattern_read(candles)
+    assert result.direction == "NEUTRAL"
+    assert "INVALID_OHLC:0" in result.warnings

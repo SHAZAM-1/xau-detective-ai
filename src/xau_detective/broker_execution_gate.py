@@ -11,6 +11,8 @@ from .models import Direction
 
 
 @dataclass(frozen=True)
+
+
 class ExecutionGateResult:
     allowed: bool
     reason: str

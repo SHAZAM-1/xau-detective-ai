@@ -9,6 +9,8 @@ from .mt5_environment import detect_environment_from_mt5
 
 
 @dataclass(frozen=True)
+
+
 class MT5SessionIdentity:
     login: str
     server: str
@@ -16,6 +18,8 @@ class MT5SessionIdentity:
 
 
 @dataclass(frozen=True)
+
+
 class MT5SessionState:
     identity: MT5SessionIdentity
     capabilities: AccountCapabilities

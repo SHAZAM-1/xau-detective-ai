@@ -37,6 +37,7 @@ PRO_SCALPER_CHART_PATTERNS: tuple[str, ...] = (
     "DOUBLE_TOP", "GARTLEY", "SYMMETRICAL_TRIANGLE", "TRIPLE_BOTTOM",
 )
 
+
 class PriceActionMove(str, Enum):
     IMPULSE_UP = "IMPULSE_UP"
     IMPULSE_DOWN = "IMPULSE_DOWN"
@@ -54,6 +55,8 @@ class PriceActionMove(str, Enum):
 
 
 @dataclass(frozen=True)
+
+
 class CandlePattern:
     name: str
     family: PatternFamily
@@ -63,6 +66,8 @@ class CandlePattern:
 
 
 @dataclass(frozen=True)
+
+
 class PriceActionEvent:
     move: PriceActionMove
     direction: str
@@ -71,6 +76,8 @@ class PriceActionEvent:
 
 
 @dataclass(frozen=True)
+
+
 class PatternStudy:
     pattern: str
     observations: int
@@ -103,6 +110,8 @@ def _long_body(c: Candle, reference: Decimal) -> bool:
     return c.body >= reference * Decimal("1.25")
 
 @dataclass(frozen=True)
+
+
 class PatternRead:
     """Conservative interpretation of detected patterns.
 
@@ -261,6 +270,8 @@ def detect_candlestick_patterns(candles: tuple[Candle, ...]) -> tuple[CandlePatt
     return tuple(found)
 
     
+
+
 def detect_price_action_moves(candles: tuple[Candle, ...], lookback: int = 10) -> tuple[PriceActionEvent, ...]:
     events = []
     for i, c in enumerate(candles):

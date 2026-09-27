@@ -26,6 +26,8 @@ class MT5Gateway(Protocol):
 
 
 @dataclass(frozen=True)
+
+
 class DemoTradeProposal:
     """Auditable proposal returned before any Demo order is sent."""
 

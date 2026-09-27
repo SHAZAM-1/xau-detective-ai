@@ -14,6 +14,8 @@ from .models import Direction
 
 
 @dataclass(frozen=True)
+
+
 class MT5OrderResponse:
     accepted: bool
     order_id: str | None
