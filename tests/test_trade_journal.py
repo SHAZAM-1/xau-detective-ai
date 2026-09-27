@@ -86,3 +86,22 @@ def test_journal_returns_latest_entry_for_idempotency_key():
     journal.append(second)
     assert journal.latest_for_idempotency_key("k1").status == "SUBMITTED"
     assert journal.latest_for_idempotency_key("missing") is None
+
+
+def test_journal_pending_submission_survives_restart_lookup(tmp_path):
+    from xau_detective.trade_journal import JsonlTradeJournal
+    intent = TradeIntent(
+        symbol="XAUUSD", direction=Direction.BUY, volume=Decimal("0.01"),
+        entry=Decimal("4000"), stop_loss=Decimal("3990"), take_profit=Decimal("4020"),
+        source=TradeSource.BOT_SUGGESTION, idempotency_key="restart-1",
+        risk=RiskResult(True, Decimal("0.01"), Decimal("1"), Decimal("1"), "OK"),
+    )
+    entry = journal_entry_from_intent(
+        intent=intent, status="PENDING_SUBMISSION", reason="BROKER_SUBMISSION_PENDING",
+        timestamp=datetime(2026, 9, 27, tzinfo=UTC),
+    )
+    path = tmp_path / "restart.jsonl"
+    journal = JsonlTradeJournal(path)
+    journal.append(entry)
+    restored = JsonlTradeJournal(path)
+    assert restored.latest_for_idempotency_key("restart-1") == entry

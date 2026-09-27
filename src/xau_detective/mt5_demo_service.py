@@ -20,11 +20,12 @@ from .mt5_adapter import (
 )
 from .mt5_execution import MetaTrader5DemoGateway
 from .mt5_position_manager import LifecycleSnapshot, MT5PositionManager
+from .mt5_reconciliation import MT5TradeReconciler, ReconciliationResult, TradeLifecycleState
 from .mt5_session import MT5SessionMonitor
 from .pipeline import MarketAnalysis
 from .production_preflight import run_production_preflight
 from .runtime_health import RuntimeHealthTracker
-from .trade_journal import InMemoryTradeJournal, TradeJournal, journal_entry_from_intent
+from .trade_journal import InMemoryTradeJournal, TradeJournal, TradeJournalEntry, journal_entry_from_intent
 from .trading_profile import TradingProfile
 
 
@@ -70,6 +71,57 @@ class MT5DemoTradingService:
         snapshot = self._positions.snapshot()
         self._health.reconciliation_checked(datetime.now(UTC), active_exposure=snapshot.active)
         return snapshot
+
+    def recover_pending_submission(
+        self,
+        *,
+        idempotency_key: str,
+        order_id: str | None = None,
+        position_id: str | None = None,
+        requested_volume: str | None = None,
+        now: datetime | None = None,
+    ) -> ReconciliationResult:
+        """Reconcile a durable pending submission without sending a new order."""
+        timestamp = now or datetime.now(UTC)
+        pending = self._journal.latest_for_idempotency_key(idempotency_key)
+        if pending is None or pending.status != "PENDING_SUBMISSION":
+            raise ValueError("PENDING_SUBMISSION_NOT_FOUND")
+
+        reconciler = MT5TradeReconciler(
+            self._mt5, symbol=pending.symbol, magic=self._magic
+        )
+        result = reconciler.reconcile(
+            order_id=order_id or pending.order_id,
+            position_id=position_id,
+            requested_volume=requested_volume or str(pending.volume),
+        )
+
+        if result.state is TradeLifecycleState.NOT_FOUND:
+            status = "RECOVERY_REQUIRED"
+            reason = "BROKER_STATE_NOT_FOUND_MANUAL_RECONCILIATION_REQUIRED"
+        else:
+            status = f"RECOVERED_{result.state.value}"
+            reason = result.reason
+
+        self._journal.append(
+            TradeJournalEntry(
+                timestamp=timestamp,
+                idempotency_key=pending.idempotency_key,
+                symbol=pending.symbol,
+                direction=pending.direction,
+                volume=pending.volume,
+                entry=pending.entry,
+                stop_loss=pending.stop_loss,
+                take_profit=pending.take_profit,
+                source=pending.source,
+                status=status,
+                reason=reason,
+                order_id=result.order_id or pending.order_id,
+            )
+        )
+        self._health.reconciliation_checked(timestamp, active_exposure=self._positions.snapshot().active)
+        self._health.reason(reason)
+        return result
 
     @property
     def health(self) -> RuntimeHealthTracker:
