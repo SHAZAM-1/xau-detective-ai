@@ -12,7 +12,7 @@ from xau_detective.candlestick import (
 from xau_detective.market import Candle
 
 
-def candle(o, h, l, c, minute):
+def candle(o, h, low, c, minute):
     return Candle(
         timestamp=datetime(2026, 9, 27, 10, minute, tzinfo=timezone.utc),
         open=Decimal(str(o)),
