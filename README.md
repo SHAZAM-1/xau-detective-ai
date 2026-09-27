@@ -135,6 +135,7 @@ If the requested position cannot be executed while respecting the configured ris
 - [x] Liquidity reference features
 - [x] GitHub Actions test/lint workflow
 - [x] Project-wide health check with commit impact reporting
+- [x] Deterministic paper-trading engine with broker constraints, execution delay, spread, slippage, commission, and rejection audit
 
 ### Implemented environment boundary
 - [x] Explicit RESEARCH / DEMO / LIVE environment model
