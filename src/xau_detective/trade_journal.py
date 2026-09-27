@@ -15,6 +15,8 @@ from .demo_execution import TradeIntent
 
 
 @dataclass(frozen=True)
+
+
 class TradeJournalEntry:
     timestamp: datetime
     idempotency_key: str
