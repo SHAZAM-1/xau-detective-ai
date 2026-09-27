@@ -23,7 +23,20 @@ class DemoTradeProposal:
     execution: ExecutionSnapshot | None = None
     environment: AccountCapabilities | None = None
 
-def build_demo_proposal(*, capabilities: AccountCapabilities, account: AccountSnapshot, broker: BrokerSpec, execution: ExecutionSnapshot, profile: TradingProfile, d1: tuple, h4: tuple, h1: tuple, m15: tuple, m5: tuple, now=None) -> DemoTradeProposal:
+def build_demo_proposal(
+    *,
+    capabilities: AccountCapabilities,
+    account: AccountSnapshot,
+    broker: BrokerSpec,
+    execution: ExecutionSnapshot,
+    profile: TradingProfile,
+    d1: tuple,
+    h4: tuple,
+    h1: tuple,
+    m15: tuple,
+    m5: tuple,
+    now=None,
+) -> DemoTradeProposal:
     profile.validate()
     if capabilities.environment is not TradingEnvironment.DEMO:
         return DemoTradeProposal(False, environment_reason(capabilities), None, account, broker, execution, capabilities)
