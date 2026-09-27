@@ -16,6 +16,20 @@ def test_data_gap_is_rejected():
     assert "DATA_GAP" in result.reasons
 
 
+def test_non_monotonic_timestamps_are_rejected():
+    t = datetime.now(UTC)
+    result = validate_candles((c(t), c(t - timedelta(minutes=5))), timedelta(minutes=5))
+    assert not result.usable
+    assert "NON_MONOTONIC_TIMESTAMPS" in result.reasons
+
+
+def test_duplicate_timestamps_are_rejected():
+    t = datetime.now(UTC)
+    result = validate_candles((c(t), c(t)), timedelta(minutes=5))
+    assert not result.usable
+    assert "NON_MONOTONIC_TIMESTAMPS" in result.reasons
+
+
 def test_zero_range_candle_is_rejected():
     t = datetime.now(UTC)
     candle = Candle(t, Decimal(1), Decimal(1), Decimal(1), Decimal(1))
