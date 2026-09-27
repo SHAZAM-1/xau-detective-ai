@@ -112,3 +112,14 @@ def test_gate_rejects_insufficient_margin():
         symbol_info=symbol(), intent=intent(),
     )
     assert result.reason == "INSUFFICIENT_FREE_MARGIN"
+
+
+def test_gate_rejects_without_explicit_execution_opt_in():
+    caps = AccountCapabilities(
+        environment=TradingEnvironment.DEMO, connected=True, connection_healthy=True,
+        trading_allowed=True, execution_enabled=False, symbol_available=True, symbol="XAUUSD",
+    )
+    result = BrokerExecutionGate().validate(
+        mt5=FakeMT5(), capabilities=caps, account_info=account(), symbol_info=symbol(), intent=intent(),
+    )
+    assert result.reason == "DEMO_EXECUTION_NOT_ENABLED"
