@@ -60,3 +60,17 @@ def test_demo_runner_stops_when_execution_capability_is_missing():
 def test_demo_risk_budget_uses_equity():
     account = AccountSnapshot(Decimal(900), Decimal(1000), Decimal(800))
     assert calculate_demo_risk_budget(account, Decimal("0.01")) == Decimal(10)
+
+
+def test_demo_proposal_can_analyze_when_execution_is_disabled():
+    account, broker, execution, capabilities = _fixtures()
+    blocked = AccountCapabilities(
+        environment=TradingEnvironment.DEMO, connected=True, connection_healthy=True,
+        trading_allowed=True, execution_enabled=False, symbol_available=True, symbol="XAUUSD"
+    )
+    result = build_demo_proposal(
+        capabilities=blocked, account=account, broker=broker, execution=execution,
+        profile=TradingProfile(), d1=(), h4=(), h1=(), m15=(), m5=()
+    )
+    assert result.analysis is not None
+    assert result.reason != "DEMO_EXECUTION_NOT_ENABLED"
