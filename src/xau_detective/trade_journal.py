@@ -27,6 +27,7 @@ class TradeJournalEntry:
 class TradeJournal(Protocol):
     def append(self, entry: TradeJournalEntry) -> None: ...
     def entries(self) -> tuple[TradeJournalEntry, ...]: ...
+    def latest_for_idempotency_key(self, key: str) -> TradeJournalEntry | None: ...
 
 def _normalize_timestamp(value: datetime) -> datetime:
     return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
@@ -66,6 +67,12 @@ class InMemoryTradeJournal:
     def entries(self) -> tuple[TradeJournalEntry, ...]:
         return tuple(self._entries)
 
+    def latest_for_idempotency_key(self, key: str) -> TradeJournalEntry | None:
+        for entry in reversed(self._entries):
+            if entry.idempotency_key == key:
+                return entry
+        return None
+
 class JsonlTradeJournal:
     """Durable append-only JSONL journal."""
     def __init__(self, path: str | Path) -> None:
@@ -94,6 +101,12 @@ class JsonlTradeJournal:
         self._entries.append(entry)
     def entries(self) -> tuple[TradeJournalEntry, ...]:
         return tuple(self._entries)
+
+    def latest_for_idempotency_key(self, key: str) -> TradeJournalEntry | None:
+        for entry in reversed(self._entries):
+            if entry.idempotency_key == key:
+                return entry
+        return None
 
 def journal_entry_from_intent(*, intent: TradeIntent, status: str, reason: str, order_id: str | None = None, timestamp: datetime) -> TradeJournalEntry:
     return TradeJournalEntry(

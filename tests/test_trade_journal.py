@@ -1,3 +1,4 @@
+from dataclasses import asdict
 from datetime import UTC, datetime
 from decimal import Decimal
 
@@ -61,3 +62,27 @@ def test_jsonl_trade_journal_rejects_corrupt_records(tmp_path):
     path.write_text('{"broken":true}\\n', encoding="utf-8")
     with pytest.raises(ValueError, match="INVALID_TRADE_JOURNAL_RECORD:1"):
         JsonlTradeJournal(path)
+
+
+def test_journal_returns_latest_entry_for_idempotency_key():
+    journal = InMemoryTradeJournal()
+    first = TradeJournalEntry(
+        timestamp=datetime(2026, 9, 27, tzinfo=UTC),
+        idempotency_key="k1",
+        symbol="XAUUSD",
+        direction="BUY",
+        volume=Decimal("0.01"),
+        entry=Decimal("4000"),
+        stop_loss=Decimal("3990"),
+        take_profit=Decimal("4020"),
+        source="BOT_SUGGESTION",
+        status="PENDING_SUBMISSION",
+        reason="BROKER_SUBMISSION_PENDING",
+    )
+    second = TradeJournalEntry(
+        **{**asdict(first), "status": "SUBMITTED", "reason": "DEMO_ORDER_SUBMITTED", "order_id": "123"}
+    )
+    journal.append(first)
+    journal.append(second)
+    assert journal.latest_for_idempotency_key("k1").status == "SUBMITTED"
+    assert journal.latest_for_idempotency_key("missing") is None

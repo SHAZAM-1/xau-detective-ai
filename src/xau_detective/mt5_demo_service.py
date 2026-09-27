@@ -248,6 +248,20 @@ class MT5DemoTradingService:
             self._health.rejected(gate.reason)
             return DemoCycleResult(changed, analysis, None, gate.reason)
 
+        previous = self._journal.latest_for_idempotency_key(intent.idempotency_key)
+        if previous is not None and previous.status in {"SUBMITTED", "PENDING_SUBMISSION"}:
+            reason = "UNRESOLVED_SUBMISSION_REQUIRES_RECONCILIATION"
+            self._health.rejected(reason)
+            return DemoCycleResult(changed, analysis, None, reason)
+
+        self._journal.append(
+            journal_entry_from_intent(
+                intent=intent,
+                status="PENDING_SUBMISSION",
+                reason="BROKER_SUBMISSION_PENDING",
+                timestamp=now,
+            )
+        )
         self._health.execution_attempted(now)
         try:
             order = self._executor.execute(
