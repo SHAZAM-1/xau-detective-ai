@@ -17,6 +17,17 @@ timeframes:
   structure: H1
   setup: M15
   entry: M5
+user_profile:
+  risk_per_trade: 0.01
+  bot_suggestions_enabled: true
+  auto_analysis_enabled: true
+  auto_execution_enabled: false
+  max_spread: null
+  max_slippage: null
+  stop_atr_multiple: 1.5
+  allowed_sessions:
+    - LONDON
+    - NEW_YORK
 strategy:
   min_reward_risk: 2.0
   require_closed_candle_confirmation: true
