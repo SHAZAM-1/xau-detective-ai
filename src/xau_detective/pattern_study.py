@@ -72,15 +72,12 @@ def _observation(
     if pattern.direction == "BULLISH":
         mfe = max(_forward_return(entry, candle.high) for candle in future)
         mae = max(_zero(), max((_forward_return(entry, candle.low) * Decimal("-1") for candle in future), default=_zero()))
-        expectancy = returns[-1]
     elif pattern.direction == "BEARISH":
         mfe = max((entry - candle.low) / entry for candle in future)
         mae = max(_zero(), max(((candle.high - entry) / entry for candle in future), default=_zero()))
-        expectancy = -returns[-1]
     else:
         mfe = max((_forward_return(entry, candle.high) for candle in future), default=_zero())
         mae = max(_zero(), max((_forward_return(entry, candle.low) * Decimal("-1") for candle in future), default=_zero()))
-        expectancy = returns[-1]
 
     return PatternObservation(
         pattern.name,
