@@ -2,7 +2,6 @@ from datetime datetime, timedelta, timezone
 from decimal import Decimal
 from types import SimpleNamespace
 
-from xau_detective.environment import TradingEnvironment
 from xau_detective.demo_execution import TradeIntent, TradeSource
 from xau_detective.environment import TradingEnvironment
 from xau_detective.mt5_demo_service import MT5DemoTradingService
