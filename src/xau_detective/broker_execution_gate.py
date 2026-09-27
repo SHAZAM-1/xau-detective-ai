@@ -121,12 +121,15 @@ class BrokerExecutionGate:
                 if intent.direction is Direction.BUY
                 else mt5.ORDER_TYPE_SELL
             )
-            margin = calc_margin(
-                order_type,
-                intent.symbol,
-                float(intent.volume),
-                float(intent.entry),
-            )
+            try:
+                margin = calc_margin(
+                    order_type,
+                    intent.symbol,
+                    float(intent.volume),
+                    float(intent.entry),
+                )
+            except Exception:
+                return ExecutionGateResult(False, "MARGIN_CALCULATION_FAILED")
             if margin is None:
                 return ExecutionGateResult(False, "MARGIN_CALCULATION_FAILED")
             if Decimal(str(margin)) >= free_margin:

@@ -53,8 +53,8 @@ def test_demo_runner_stops_when_execution_capability_is_missing():
         d1=(), h4=(), h1=(), m15=(), m5=(),
     )
     assert not result.allowed
-    assert result.analysis is not None
-    assert result.reason == "DATA_QUALITY:D1:NO_CANDLES"
+    assert result.reason == "DEMO_EXECUTION_NOT_ENABLED"
+    assert result.analysis is None
 
 
 def test_demo_risk_budget_uses_equity():
@@ -73,4 +73,4 @@ def test_demo_proposal_can_analyze_when_execution_is_disabled():
         profile=TradingProfile(), d1=(), h4=(), h1=(), m15=(), m5=()
     )
     assert result.analysis is not None
-    assert result.reason != "DEMO_EXECUTION_NOT_ENABLED"
+    assert result.reason == "DATA_QUALITY:D1:NO_CANDLES"
