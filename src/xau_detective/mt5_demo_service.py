@@ -378,12 +378,14 @@ class MT5DemoTradingService:
                 m5=m5,
                 now=now,
             )
-            if not proposal.allowed or proposal.analysis is None:
-                return self._finish(trace_id=idempotency_key, now=now, result=DemoCycleResult(changed, proposal.analysis, None, proposal.reason))
+            if proposal.analysis is None:
+                return self._finish(trace_id=idempotency_key, now=now, result=DemoCycleResult(changed, None, None, proposal.reason))
 
             self._health.analysis_attempted(now)
             analysis = proposal.analysis
             self._audit_analysis(trace_id=idempotency_key, now=now, analysis=analysis)
+            if not proposal.allowed:
+                return self._finish(trace_id=idempotency_key, now=now, result=DemoCycleResult(changed, analysis, None, proposal.reason))
             decision = analysis.decision
             if decision.scenario is None or decision.risk is None:
                 return self._finish(trace_id=idempotency_key, now=now, result=DemoCycleResult(changed, analysis, None, "NO_EXECUTABLE_SCENARIO"))

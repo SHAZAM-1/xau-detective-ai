@@ -325,3 +325,54 @@ def test_recovery_rejects_unknown_pending_submission():
         assert str(exc) == "PENDING_SUBMISSION_NOT_FOUND"
     else:
         raise AssertionError("expected missing pending submission to fail closed")
+
+
+def test_service_audits_analysis_decision_and_no_trade():
+    from xau_detective.audit_log import InMemoryAuditLog
+    from xau_detective.models import Decision, Scenario
+    from xau_detective.pipeline import MarketAnalysis
+
+    audit = InMemoryAuditLog()
+    service = MT5DemoTradingService(FakeMT5(), audit_log=audit)
+    reason = "PATTERN_CONFLICT_LATEST_CANDLE"
+    analysis = MarketAnalysis(
+        decision=Decision(
+            Direction.NO_TRADE,
+            42,
+            reason,
+            Scenario(Direction.NO_TRADE, (reason,), reason),
+            None,
+        ),
+        timestamp=datetime(2026, 9, 28, 12, tzinfo=timezone.utc),
+        entry=Decimal("4000"),
+        stop_loss=None,
+        take_profit=None,
+        session="NEW_YORK",
+        evidence_supporting=("TREND_BULLISH",),
+        evidence_contradicting=("PATTERN_CONFLICT",),
+        evidence_warnings=("LOW_LIQUIDITY",),
+        reward_risk=None,
+        candlestick_patterns=("ENGULFING",),
+        price_action_moves=("LIQUIDITY_SWEEP",),
+    )
+
+    service._audit_analysis(
+        trace_id="analysis-1", now=analysis.timestamp, analysis=analysis
+    )
+
+    events = audit.events()
+    assert {event.event for event in events} == {
+        "analysis_started",
+        "evidence",
+        "pattern_analysis",
+        "decision",
+        "no_trade",
+    }
+    assert all(event.trace_id == "analysis-1" for event in events)
+    decision = next(event for event in events if event.event == "decision")
+    assert decision.status == "NO_TRADE"
+    assert decision.reason == reason
+    assert decision.details["setup_score"] == 42
+    no_trade = next(event for event in events if event.event == "no_trade")
+    assert no_trade.reason == reason
+    assert no_trade.details["evidence_contradicting"] == ["PATTERN_CONFLICT"]
