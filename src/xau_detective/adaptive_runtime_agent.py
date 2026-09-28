@@ -93,8 +93,19 @@ class AdaptiveRuntimeAgent:
         """Return bounded operational adaptations and a fail-closed safety verdict."""
         recent = self._audit.events()[-self._failure_window :]
         reasons: dict[str, int] = {}
+        operational_prefixes = (
+            "MT5_",
+            "SYMBOL_",
+            "INVALID_",
+            "EXECUTION_ERROR:",
+            "DATA_",
+        )
         for event in recent:
-            if event.status in {"BLOCKED", "REJECTED"} and event.reason:
+            if (
+                event.status in {"BLOCKED", "REJECTED"}
+                and event.reason
+                and event.reason.startswith(operational_prefixes)
+            ):
                 reasons[event.reason] = reasons.get(event.reason, 0) + 1
 
         repeated = tuple(
