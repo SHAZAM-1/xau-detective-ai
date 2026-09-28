@@ -1,6 +1,4 @@
 """Tests for the policy-bounded repair executor."""
-from datetime import UTC, datetime
-
 from xau_detective.audit_log import AuditEvent, InMemoryAuditLog
 from xau_detective.controlled_repair_executor import ControlledRepairExecutor
 from xau_detective.repair_engine import RepairChange, RepairPlan
