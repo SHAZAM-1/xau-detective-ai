@@ -190,6 +190,28 @@ class MT5DemoTradingService:
                 )
             )
 
+    def _audit_rejection(
+        self,
+        *,
+        trace_id: str,
+        now: datetime,
+        reason: str,
+        event: str = "rejection",
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        """Record every cycle gate that prevents execution."""
+        self._audit.append(
+            AuditEvent(
+                timestamp=now,
+                trace_id=trace_id,
+                event=event,
+                status="BLOCKED",
+                reason=reason,
+                symbol=self._symbol,
+                details=details or {},
+            )
+        )
+
     @property
     def session(self) -> MT5SessionMonitor:
         return self._session
@@ -293,14 +315,18 @@ class MT5DemoTradingService:
         try:
             account_info = self._mt5.account_info()
         except Exception:
-            return self._finish(trace_id=idempotency_key, now=now, result=DemoCycleResult(False, None, None, "MT5_ACCOUNT_INFO_UNAVAILABLE"))
+            reason = "MT5_ACCOUNT_INFO_UNAVAILABLE"
+            self._audit_rejection(trace_id=idempotency_key, now=now, reason=reason, event="failure")
+            return self._finish(trace_id=idempotency_key, now=now, result=DemoCycleResult(False, None, None, reason))
         if account_info is None:
             return self._finish(trace_id=idempotency_key, now=now, result=DemoCycleResult(False, None, None, "MT5_ACCOUNT_INFO_UNAVAILABLE"))
 
         try:
             terminal_info = getattr(self._mt5, "terminal_info", lambda: None)()
         except Exception:
-            return self._finish(trace_id=idempotency_key, now=now, result=DemoCycleResult(False, None, None, "MT5_CONNECTION_UNHEALTHY"))
+            reason = "MT5_CONNECTION_UNHEALTHY"
+            self._audit_rejection(trace_id=idempotency_key, now=now, reason=reason, event="failure")
+            return self._finish(trace_id=idempotency_key, now=now, result=DemoCycleResult(False, None, None, reason))
         connected = terminal_info is not None and bool(
             getattr(terminal_info, "connected", True)
         )
@@ -309,12 +335,16 @@ class MT5DemoTradingService:
         try:
             symbol_info = self._mt5.symbol_info(self._symbol)
         except Exception:
-            return self._finish(trace_id=idempotency_key, now=now, result=DemoCycleResult(False, None, None, "MT5_SYMBOL_INFO_UNAVAILABLE"))
+            reason = "MT5_SYMBOL_INFO_UNAVAILABLE"
+            self._audit_rejection(trace_id=idempotency_key, now=now, reason=reason, event="failure")
+            return self._finish(trace_id=idempotency_key, now=now, result=DemoCycleResult(False, None, None, reason))
         symbol_available = symbol_info is not None
         try:
             tick = self._mt5.symbol_info_tick(self._symbol) if symbol_available else None
         except Exception:
-            return self._finish(trace_id=idempotency_key, now=now, result=DemoCycleResult(False, None, None, "MT5_TICK_UNAVAILABLE"))
+            reason = "MT5_TICK_UNAVAILABLE"
+            self._audit_rejection(trace_id=idempotency_key, now=now, reason=reason, event="failure")
+            return self._finish(trace_id=idempotency_key, now=now, result=DemoCycleResult(False, None, None, reason))
         if tick is None:
             return self._finish(trace_id=idempotency_key, now=now, result=DemoCycleResult(False, None, None, "MT5_TICK_UNAVAILABLE"))
 
@@ -330,17 +360,23 @@ class MT5DemoTradingService:
         changed = session_before != state.identity
 
         if state.capabilities.environment is not TradingEnvironment.DEMO:
-            return self._finish(trace_id=idempotency_key, now=now, result=DemoCycleResult(changed, None, None, "LIVE_EXECUTION_LOCKED_V1"))
+            reason = "LIVE_EXECUTION_LOCKED_V1"
+            self._audit_rejection(trace_id=idempotency_key, now=now, reason=reason)
+            return self._finish(trace_id=idempotency_key, now=now, result=DemoCycleResult(changed, None, None, reason))
 
         try:
             account = account_snapshot_from_mt5(account_info)
             broker = broker_spec_from_mt5(symbol_info)
             execution = execution_snapshot_from_mt5(tick)
         except (AttributeError, TypeError, ValueError):
-            return self._finish(trace_id=idempotency_key, now=now, result=DemoCycleResult(changed, None, None, "MT5_SNAPSHOT_INVALID"))
+            reason = "MT5_SNAPSHOT_INVALID"
+            self._audit_rejection(trace_id=idempotency_key, now=now, reason=reason, event="failure")
+            return self._finish(trace_id=idempotency_key, now=now, result=DemoCycleResult(changed, None, None, reason))
 
         if user_intent is None and not profile.auto_analysis_enabled:
-            return self._finish(trace_id=idempotency_key, now=now, result=DemoCycleResult(changed, None, None, "AUTO_ANALYSIS_DISABLED"))
+            reason = "AUTO_ANALYSIS_DISABLED"
+            self._audit_rejection(trace_id=idempotency_key, now=now, reason=reason)
+            return self._finish(trace_id=idempotency_key, now=now, result=DemoCycleResult(changed, None, None, reason))
 
         preflight = run_production_preflight(
             capabilities=state.capabilities,
@@ -357,6 +393,7 @@ class MT5DemoTradingService:
         )
         if not preflight.ready:
             self._health.rejected(preflight.reason)
+            self._audit_rejection(trace_id=idempotency_key, now=now, reason=preflight.reason, event="preflight_rejection")
             return self._finish(trace_id=idempotency_key, now=now, result=DemoCycleResult(changed, None, None, preflight.reason))
         self._health.preflight_passed()
 
@@ -385,12 +422,17 @@ class MT5DemoTradingService:
             analysis = proposal.analysis
             self._audit_analysis(trace_id=idempotency_key, now=now, analysis=analysis)
             if not proposal.allowed:
+                self._audit_rejection(trace_id=idempotency_key, now=now, reason=proposal.reason, event="analysis_rejection")
                 return self._finish(trace_id=idempotency_key, now=now, result=DemoCycleResult(changed, analysis, None, proposal.reason))
             decision = analysis.decision
             if decision.scenario is None or decision.risk is None:
-                return self._finish(trace_id=idempotency_key, now=now, result=DemoCycleResult(changed, analysis, None, "NO_EXECUTABLE_SCENARIO"))
+                reason = "NO_EXECUTABLE_SCENARIO"
+                self._audit_rejection(trace_id=idempotency_key, now=now, reason=reason, event="execution_rejection")
+                return self._finish(trace_id=idempotency_key, now=now, result=DemoCycleResult(changed, analysis, None, reason))
             if analysis.stop_loss is None or analysis.take_profit is None:
-                return self._finish(trace_id=idempotency_key, now=now, result=DemoCycleResult(changed, analysis, None, "ANALYSIS_MISSING_EXECUTION_LEVELS"))
+                reason = "ANALYSIS_MISSING_EXECUTION_LEVELS"
+                self._audit_rejection(trace_id=idempotency_key, now=now, reason=reason, event="execution_rejection")
+                return self._finish(trace_id=idempotency_key, now=now, result=DemoCycleResult(changed, analysis, None, reason))
 
             direction = decision.direction
             intent = TradeIntent(
@@ -406,7 +448,9 @@ class MT5DemoTradingService:
             )
         else:
             if profile.bot_suggestions_enabled:
-                return self._finish(trace_id=idempotency_key, now=now, result=DemoCycleResult(changed, None, None, "USER_DEFINED_REQUIRES_SUGGESTIONS_OFF"))
+                reason = "USER_DEFINED_REQUIRES_SUGGESTIONS_OFF"
+                self._audit_rejection(trace_id=idempotency_key, now=now, reason=reason)
+                return self._finish(trace_id=idempotency_key, now=now, result=DemoCycleResult(changed, None, None, reason))
             intent = user_intent
 
         self._audit.append(
@@ -445,6 +489,7 @@ class MT5DemoTradingService:
                 )
             )
             self._health.rejected(reason)
+            self._audit_rejection(trace_id=idempotency_key, now=now, reason=reason, event="exposure_rejection")
             return self._finish(trace_id=idempotency_key, now=now, result=DemoCycleResult(changed, analysis, None, reason))
 
         gate = self._execution_gate.validate(
@@ -467,12 +512,14 @@ class MT5DemoTradingService:
                 )
             )
             self._health.rejected(gate.reason)
+            self._audit_rejection(trace_id=idempotency_key, now=now, reason=gate.reason, event="execution_gate_rejection")
             return self._finish(trace_id=idempotency_key, now=now, result=DemoCycleResult(changed, analysis, None, gate.reason))
 
         previous = self._journal.latest_for_idempotency_key(intent.idempotency_key)
         if previous is not None and previous.status in {"SUBMITTED", "PENDING_SUBMISSION"}:
             reason = "UNRESOLVED_SUBMISSION_REQUIRES_RECONCILIATION"
             self._health.rejected(reason)
+            self._audit_rejection(trace_id=idempotency_key, now=now, reason=reason, event="idempotency_rejection")
             return self._finish(trace_id=idempotency_key, now=now, result=DemoCycleResult(changed, analysis, None, reason))
 
         self._journal.append(
@@ -516,6 +563,7 @@ class MT5DemoTradingService:
                 )
             )
             self._health.errored(reason)
+            self._audit_rejection(trace_id=idempotency_key, now=now, reason=reason, event="execution_failure")
             return self._finish(trace_id=idempotency_key, now=now, result=DemoCycleResult(changed, analysis, None, reason))
         self._journal.append(
             journal_entry_from_intent(
