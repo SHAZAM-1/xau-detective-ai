@@ -29,10 +29,10 @@ Immutable Decision Log
 The system has three explicit environments:
 
 - **RESEARCH** — historical/backtest analysis only; no order APIs.
-- **DEMO** — MT5 demo connectivity is supported. Analysis can use live broker prices/specifications, and order execution is only permitted after an explicit execution opt-in plus all connection, trading, symbol, risk, and margin gates.
+- **DEMO** — MT5 demo connectivity is supported. Analysis can use live broker prices/specifications, and order execution is only permitted after an explicit execution opt-in plus all connection, trading, symbol, risk, and margin gates. The detected MT5 account environment is authoritative for this boundary.
 - **LIVE** — connected-live-account support is architecturally represented, but autonomous live execution remains locked in V1.
 
-The environment is never inferred from account balance, equity, or account size. The caller must explicitly select the environment.
+The environment is never inferred from account balance, equity, or account size. MT5 account state is the source of truth for the detected environment. Callers may supply an explicit environment in controlled research/test contexts, but an explicit caller value must not override a conflicting MT5 account state. Policy gates decide what actions are permitted for the detected environment.
 
 The capability layer records:
 

@@ -48,8 +48,3 @@ def build_demo_proposal(
     return DemoTradeProposal(
         allowed=analysis.decision.direction.value != "NO_TRADE" and analysis.decision.risk is not None and analysis.decision.risk.executable,
         reason=analysis.decision.reason, analysis=analysis, account=account, broker=broker, execution=execution, environment=capabilities)
-
-def calculate_demo_risk_budget(account: AccountSnapshot, risk_fraction: Decimal) -> Decimal:
-    if risk_fraction <= 0 or risk_fraction >= 1:
-        raise ValueError("risk_fraction must be greater than 0 and below 1")
-    return account.equity * risk_fraction

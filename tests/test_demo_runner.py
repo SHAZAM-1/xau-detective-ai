@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from xau_detective.demo_runner import build_demo_proposal, calculate_demo_risk_budget
+from xau_detective.demo_runner import build_demo_proposal
 from xau_detective.environment import AccountCapabilities, TradingEnvironment
 from xau_detective.models import AccountSnapshot, BrokerSpec, ExecutionSnapshot
 from xau_detective.trading_profile import TradingProfile
