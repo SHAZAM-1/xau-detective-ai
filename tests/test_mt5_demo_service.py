@@ -61,6 +61,9 @@ class FakeMT5:
         self.sent.append(request)
         return SimpleNamespace(retcode=10009, order=777, comment="done")
 
+    def history_deals_get(self, **kwargs):
+        return self.deals
+
 
 def candles(step=timedelta(hours=1)):
     start = datetime(2026, 9, 26, 10, tzinfo=timezone.utc)
