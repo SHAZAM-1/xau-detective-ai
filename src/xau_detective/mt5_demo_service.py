@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
+from .adaptive_runtime_agent import AdaptiveRuntimeAgent, MT5RuntimeObservation
 from .audit_log import AuditEvent, AuditLog, InMemoryAuditLog
 from .broker_execution_gate import BrokerExecutionGate
 from .demo_execution import DemoOrderExecutor, DemoOrderResult, TradeIntent, TradeSource
@@ -25,6 +26,7 @@ from .mt5_reconciliation import MT5TradeReconciler, ReconciliationResult, TradeL
 from .mt5_session import MT5SessionMonitor
 from .pipeline import MarketAnalysis
 from .models import Direction
+from .project_guardian import ProjectGuardian
 from .production_preflight import run_production_preflight
 from .runtime_health import RuntimeHealthTracker
 from .trade_journal import InMemoryTradeJournal, TradeJournal, TradeJournalEntry, journal_entry_from_intent
@@ -51,6 +53,8 @@ class MT5DemoTradingService:
         magic: int = 260926,
         journal: TradeJournal | None = None,
         audit_log: AuditLog | None = None,
+        adaptive_agent: AdaptiveRuntimeAgent | None = None,
+        project_guardian: ProjectGuardian | None = None,
     ) -> None:
         self._mt5 = mt5_module
         self._symbol = symbol
@@ -63,6 +67,8 @@ class MT5DemoTradingService:
         self._execution_gate = BrokerExecutionGate()
         self._journal = journal or InMemoryTradeJournal()
         self._audit = audit_log or InMemoryAuditLog()
+        self._adaptive = adaptive_agent or AdaptiveRuntimeAgent(self._audit)
+        self._guardian = project_guardian or ProjectGuardian(self._audit)
         self._positions = MT5PositionManager(mt5_module, symbol=symbol, magic=magic)
         self._health = RuntimeHealthTracker()
 
@@ -372,6 +378,58 @@ class MT5DemoTradingService:
             reason = "MT5_SNAPSHOT_INVALID"
             self._audit_rejection(trace_id=idempotency_key, now=now, reason=reason, event="failure")
             return self._finish(trace_id=idempotency_key, now=now, result=DemoCycleResult(changed, None, None, reason))
+
+        adaptive_report = self._adaptive.assess(
+            observation=MT5RuntimeObservation(
+                capabilities=state.capabilities,
+                broker=broker,
+                execution=execution,
+            ),
+            profile=profile,
+            trace_id=idempotency_key,
+            now=now,
+        )
+        if not adaptive_report.safe:
+            reason = "ADAPTIVE_RUNTIME_GUARD"
+            self._health.rejected(reason)
+            self._audit_rejection(
+                trace_id=idempotency_key,
+                now=now,
+                reason=reason,
+                event="adaptive_runtime_guard",
+                details={
+                    "repeated_failures": list(adaptive_report.repeated_failures),
+                    "blocked_changes": list(adaptive_report.blocked_changes),
+                },
+            )
+            return self._finish(
+                trace_id=idempotency_key,
+                now=now,
+                result=DemoCycleResult(changed, None, None, reason),
+            )
+
+        guardian_report = self._guardian.inspect(
+            trace_id=idempotency_key,
+            now=now,
+        )
+        if not guardian_report.safe:
+            reason = "PROJECT_GUARDIAN_GUARD"
+            self._health.rejected(reason)
+            self._audit_rejection(
+                trace_id=idempotency_key,
+                now=now,
+                reason=reason,
+                event="project_guardian_guard",
+                details={
+                    "findings": [item.reason for item in guardian_report.findings],
+                    "blocked_changes": list(guardian_report.blocked_changes),
+                },
+            )
+            return self._finish(
+                trace_id=idempotency_key,
+                now=now,
+                result=DemoCycleResult(changed, None, None, reason),
+            )
 
         if user_intent is None and not profile.auto_analysis_enabled:
             reason = "AUTO_ANALYSIS_DISABLED"
