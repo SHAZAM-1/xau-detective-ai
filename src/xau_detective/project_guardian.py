@@ -177,10 +177,9 @@ class ProjectGuardian:
         return target in IMMUTABLE_PROJECT_POLICIES
 
     def evidence_for_reason(self, reason: str) -> tuple[AuditEvent, ...]:
-        return filter_events(
-            self._audit.events()[-self._history_window :],
-            status="BLOCKED",
-        ) + filter_events(
-            self._audit.events()[-self._history_window :],
+        events = self._audit.events()[-self._history_window :]
+        return filter_events(events, reason=reason, status="BLOCKED") + filter_events(
+            events,
+            reason=reason,
             status="REJECTED",
         )
