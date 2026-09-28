@@ -1,4 +1,7 @@
 """Tests for the policy-bounded repair executor."""
+from datetime import UTC, datetime
+
+from xau_detective.audit_log import AuditEvent, InMemoryAuditLog
 from xau_detective.controlled_repair_executor import ControlledRepairExecutor
 from xau_detective.repair_engine import RepairChange, RepairPlan
 
@@ -95,3 +98,32 @@ def test_blocked_plan_never_dispatches() -> None:
     assert result.executed == 0
     assert result.reason == "GUARDIAN_BLOCKED"
     assert called is False
+
+
+def test_execution_is_audited() -> None:
+    audit = InMemoryAuditLog()
+    executor = ControlledRepairExecutor(
+        {"TESTS": lambda _item: True},
+        audit_log=audit,
+    )
+
+    result = executor.execute(plan(change("TESTS")))
+
+    assert result.applied is True
+    event = audit.events()[-1]
+    assert isinstance(event, AuditEvent)
+    assert event.event == "controlled_repair_execution"
+    assert event.status == "APPLIED"
+    assert event.reason == "REPAIR_EXECUTED"
+
+
+def test_blocked_execution_is_audited() -> None:
+    audit = InMemoryAuditLog()
+    executor = ControlledRepairExecutor({}, audit_log=audit)
+
+    result = executor.execute(plan(change("TESTS"), allowed=False))
+
+    assert result.applied is False
+    event = audit.events()[-1]
+    assert event.status == "BLOCKED"
+    assert event.reason == "GUARDIAN_BLOCKED"
