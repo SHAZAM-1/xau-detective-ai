@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from types import SimpleNamespace
 
+from xau_detective.audit_log import AuditEvent, InMemoryAuditLog
 from xau_detective.demo_execution import TradeIntent, TradeSource
 from xau_detective.environment import TradingEnvironment
 from xau_detective.mt5_demo_service import MT5DemoTradingService
@@ -376,3 +377,63 @@ def test_service_audits_analysis_decision_and_no_trade():
     no_trade = next(event for event in events if event.event == "no_trade")
     assert no_trade.reason == reason
     assert no_trade.details["evidence_contradicting"] == ["PATTERN_CONFLICT"]
+
+
+def test_service_integrates_adaptive_runtime_and_project_guardian():
+    audit = InMemoryAuditLog()
+    service = MT5DemoTradingService(FakeMT5(), audit_log=audit)
+    result = service.cycle(
+        profile=TradingProfile(auto_analysis_enabled=False),
+        d1=candles(),
+        h4=candles(),
+        h1=candles(),
+        m15=candles(),
+        m5=candles(),
+        now=datetime(2026, 9, 28, 12, tzinfo=timezone.utc),
+        idempotency_key="guardian-healthy",
+    )
+    assert result.reason == "AUTO_ANALYSIS_DISABLED"
+    events = audit.events()
+    assert any(
+        event.event == "adaptive_runtime"
+        and event.status == "SAFE"
+        and event.trace_id == "guardian-healthy"
+        for event in events
+    )
+    assert any(
+        event.event == "project_guardian"
+        and event.status == "SAFE"
+        and event.trace_id == "guardian-healthy"
+        for event in events
+    )
+
+
+def test_service_blocks_after_repeated_operational_failures():
+    audit = InMemoryAuditLog()
+    for index in range(3):
+        audit.append(
+            AuditEvent(
+                timestamp=datetime(2026, 9, 28, 11, index, tzinfo=timezone.utc),
+                trace_id=f"old-{index}",
+                event="failure",
+                status="BLOCKED",
+                reason="MT5_TICK_UNAVAILABLE",
+                symbol="XAUUSD",
+            )
+        )
+    service = MT5DemoTradingService(FakeMT5(), audit_log=audit)
+    result = service.cycle(
+        profile=TradingProfile(),
+        d1=candles(),
+        h4=candles(),
+        h1=candles(),
+        m15=candles(),
+        m5=candles(),
+        now=datetime(2026, 9, 28, 12, tzinfo=timezone.utc),
+        idempotency_key="adaptive-block",
+    )
+    assert result.reason == "ADAPTIVE_RUNTIME_GUARD"
+    assert not any(event.event == "project_guardian" and event.trace_id == "adaptive-block" for event in audit.events())
+    guard = next(event for event in audit.events() if event.event == "adaptive_runtime_guard")
+    assert guard.reason == "ADAPTIVE_RUNTIME_GUARD"
+    assert guard.details["repeated_failures"] == ["MT5_TICK_UNAVAILABLE"]
