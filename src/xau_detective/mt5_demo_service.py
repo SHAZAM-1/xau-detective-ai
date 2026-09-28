@@ -106,13 +106,89 @@ class MT5DemoTradingService:
         scenario = decision.scenario
         risk = decision.risk
         self._audit.append(AuditEvent(timestamp=now, trace_id=trace_id, event="analysis_started", status="COMPLETED", symbol=self._symbol, details={"session": analysis.session}))
-        self._audit.append(AuditEvent(timestamp=now, trace_id=trace_id, event="evidence", status="RECORDED", symbol=self._symbol, details={"supporting": list(analysis.evidence_supporting), "contradicting": list(analysis.evidence_contradicting), "warnings": list(analysis.evidence_warnings)}))
-        self._audit.append(AuditEvent(timestamp=now, trace_id=trace_id, event="pattern_analysis", status="RECORDED", symbol=self._symbol, details={"candlestick_patterns": list(analysis.candlestick_patterns), "price_action_moves": list(analysis.price_action_moves)}))
+        self._audit.append(
+            AuditEvent(
+                timestamp=now,
+                trace_id=trace_id,
+                event="evidence",
+                status="RECORDED",
+                symbol=self._symbol,
+                details={
+                    "supporting": list(analysis.evidence_supporting),
+                    "contradicting": list(analysis.evidence_contradicting),
+                    "warnings": list(analysis.evidence_warnings),
+                },
+            )
+        )
+        self._audit.append(
+            AuditEvent(
+                timestamp=now,
+                trace_id=trace_id,
+                event="pattern_analysis",
+                status="RECORDED",
+                symbol=self._symbol,
+                details={
+                    "candlestick_patterns": list(analysis.candlestick_patterns),
+                    "price_action_moves": list(analysis.price_action_moves),
+                },
+            )
+        )
         if risk is not None:
-            self._audit.append(AuditEvent(timestamp=now, trace_id=trace_id, event="risk_assessment", status="EXECUTABLE" if risk.executable else "VETOED", symbol=self._symbol, direction=decision.direction.value, volume=risk.volume, details={"risk_amount": risk.risk_amount, "estimated_loss": risk.estimated_loss, "reason": risk.reason}))
-        self._audit.append(AuditEvent(timestamp=now, trace_id=trace_id, event="decision", status=decision.direction.value, reason=decision.reason, symbol=self._symbol, direction=decision.direction.value, entry=analysis.entry, stop_loss=analysis.stop_loss, take_profit=analysis.take_profit, details={"setup_score": decision.setup_score, "scenario_direction": scenario.direction.value if scenario else None, "scenario_evidence": list(scenario.evidence) if scenario else [], "scenario_invalidation": scenario.invalidation if scenario else None, "scenario_target": scenario.target if scenario else None, "reward_risk": analysis.reward_risk}))
+            self._audit.append(
+                AuditEvent(
+                    timestamp=now,
+                    trace_id=trace_id,
+                    event="risk_assessment",
+                    status="EXECUTABLE" if risk.executable else "VETOED",
+                    symbol=self._symbol,
+                    direction=decision.direction.value,
+                    volume=risk.volume,
+                    details={
+                        "risk_amount": risk.risk_amount,
+                        "estimated_loss": risk.estimated_loss,
+                        "reason": risk.reason,
+                    },
+                )
+            )
+        self._audit.append(
+            AuditEvent(
+                timestamp=now,
+                trace_id=trace_id,
+                event="decision",
+                status=decision.direction.value,
+                reason=decision.reason,
+                symbol=self._symbol,
+                direction=decision.direction.value,
+                entry=analysis.entry,
+                stop_loss=analysis.stop_loss,
+                take_profit=analysis.take_profit,
+                details={
+                    "setup_score": decision.setup_score,
+                    "scenario_direction": scenario.direction.value if scenario else None,
+                    "scenario_evidence": list(scenario.evidence) if scenario else [],
+                    "scenario_invalidation": scenario.invalidation if scenario else None,
+                    "scenario_target": scenario.target if scenario else None,
+                    "reward_risk": analysis.reward_risk,
+                },
+            )
+        )
         if decision.direction is Direction.NO_TRADE:
-            self._audit.append(AuditEvent(timestamp=now, trace_id=trace_id, event="no_trade", status="BLOCKED", reason=decision.reason, symbol=self._symbol, details={"setup_score": decision.setup_score, "evidence_supporting": list(analysis.evidence_supporting), "evidence_contradicting": list(analysis.evidence_contradicting), "evidence_warnings": list(analysis.evidence_warnings)}))
+            self._audit.append(
+                AuditEvent(
+                    timestamp=now,
+                    trace_id=trace_id,
+                    event="no_trade",
+                    status="BLOCKED",
+                    reason=decision.reason,
+                    symbol=self._symbol,
+                    details={
+                        "setup_score": decision.setup_score,
+                        "evidence_supporting": list(analysis.evidence_supporting),
+                        "evidence_contradicting": list(analysis.evidence_contradicting),
+                        "evidence_warnings": list(analysis.evidence_warnings),
+                    },
+                )
+            )
 
     @property
     def session(self) -> MT5SessionMonitor:
