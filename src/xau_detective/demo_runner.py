@@ -1,7 +1,6 @@
 """Safe MT5 Demo runner boundary."""
 from __future__ import annotations
 from dataclasses import dataclass
-from decimal import Decimal
 from typing import Any, Protocol
 from .environment import AccountCapabilities, TradingEnvironment, environment_reason
 from .models import AccountSnapshot, BrokerSpec, ExecutionSnapshot
