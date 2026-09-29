@@ -63,21 +63,21 @@ def test_missing_handler_fails_closed() -> None:
     assert result.reason == "REPAIR_HANDLER_MISSING:MT5_ADAPTER"
 
 
-def test_handler_failure_stops_following_changes() -> None:
+def test_multi_change_plan_requires_transaction() -> None:
     seen: list[str] = []
     executor = ControlledRepairExecutor(
         {
             "TESTS": lambda item: seen.append(item.target) is None,
-            "LINT": lambda _item: False,
+            "LINT": lambda item: seen.append(item.target) is None,
         }
     )
 
     result = executor.execute(plan(change("TESTS"), change("LINT")))
 
     assert result.applied is False
-    assert result.executed == 1
-    assert result.reason == "REPAIR_HANDLER_FAILED:LINT"
-    assert seen == ["TESTS"]
+    assert result.executed == 0
+    assert result.reason == "REPAIR_MULTI_CHANGE_REQUIRES_TRANSACTION"
+    assert seen == []
 
 
 def test_blocked_plan_never_dispatches() -> None:

@@ -13,7 +13,11 @@ from typing import Callable, Mapping
 
 from .audit_log import AuditEvent, AuditLog
 from .project_guardian import IMMUTABLE_PROJECT_POLICIES, SAFE_REPAIR_DOMAINS
-from .repair_engine import RepairChange, RepairPlan
+from .repair_engine import (
+    MULTI_CHANGE_REPAIR_BLOCK_REASON,
+    RepairChange,
+    RepairPlan,
+)
 
 
 RepairHandler = Callable[[RepairChange], bool]
@@ -73,6 +77,20 @@ class ControlledRepairExecutor:
                 status="BLOCKED",
                 reason=result.reason,
                 details={"executed": 0},
+            )
+            return result
+
+        if len(plan.changes) > 1:
+            result = RepairExecutionResult(
+                False,
+                0,
+                MULTI_CHANGE_REPAIR_BLOCK_REASON,
+            )
+            self._record(
+                plan=plan,
+                status="BLOCKED",
+                reason=result.reason,
+                details={"executed": 0, "changes": len(plan.changes)},
             )
             return result
 

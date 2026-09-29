@@ -125,3 +125,32 @@ def test_repair_engine_does_not_apply_blocked_plan():
 
     assert result.applied is False
     assert called is False
+
+
+def test_repair_engine_blocks_multi_change_apply_without_transaction():
+    audit = InMemoryAuditLog()
+    engine = RepairEngine(audit)
+    report = guardian_report_with_runtime_failure(audit)
+    single = engine.propose(
+        guardian_report=report,
+        trace_id="repair-multi",
+        now=NOW,
+    )
+    multi = type(single)(
+        trace_id=single.trace_id,
+        changes=single.changes + (single.changes[0],),
+        requires_validation=True,
+        allowed=True,
+    )
+    called = False
+
+    def executor(_change):
+        nonlocal called
+        called = True
+        return True
+
+    result = engine.apply(plan=multi, executor=executor, now=NOW)
+
+    assert result.applied is False
+    assert result.reason == "REPAIR_MULTI_CHANGE_REQUIRES_TRANSACTION"
+    assert called is False

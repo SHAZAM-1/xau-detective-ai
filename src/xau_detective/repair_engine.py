@@ -47,6 +47,8 @@ class RepairApplyResult:
 
 RepairExecutor = Callable[[RepairChange], bool]
 
+MULTI_CHANGE_REPAIR_BLOCK_REASON = "REPAIR_MULTI_CHANGE_REQUIRES_TRANSACTION"
+
 
 class RepairEngine:
     """Create and optionally apply only policy-safe engineering repairs."""
@@ -126,6 +128,12 @@ class RepairEngine:
     ) -> RepairApplyResult:
         if not plan.allowed:
             result = RepairApplyResult(False, True, plan.rejection_reason)
+        elif len(plan.changes) > 1:
+            result = RepairApplyResult(
+                False,
+                True,
+                MULTI_CHANGE_REPAIR_BLOCK_REASON,
+            )
         else:
             for change in plan.changes:
                 if not self.validate_change(
