@@ -40,6 +40,15 @@ def test_guardian_blocks_unknown_repair_domains():
     assert "TESTS" in SAFE_REPAIR_DOMAINS
 
 
+def test_guardian_immutable_namespace_blocks_scoped_policy_targets():
+    for policy in IMMUTABLE_PROJECT_POLICIES:
+        assert ProjectGuardian.is_immutable_change(f"{policy}:DETAIL") is True
+
+
+def test_guardian_does_not_treat_safe_domain_prefix_as_immutable():
+    assert ProjectGuardian.is_immutable_change("TESTS:DETAIL") is False
+
+
 def test_guardian_clean_history_is_safe():
     audit = InMemoryAuditLog()
     report = ProjectGuardian(audit).inspect(
