@@ -174,7 +174,10 @@ class ProjectGuardian:
 
     @staticmethod
     def is_immutable_change(target: str) -> bool:
-        return target in IMMUTABLE_PROJECT_POLICIES
+        return target in IMMUTABLE_PROJECT_POLICIES or any(
+            target.startswith(f"{policy}:")
+            for policy in IMMUTABLE_PROJECT_POLICIES
+        )
 
     def evidence_for_reason(self, reason: str) -> tuple[AuditEvent, ...]:
         events = self._audit.events()[-self._history_window :]
