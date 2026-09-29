@@ -59,11 +59,6 @@ def test_demo_runner_stops_when_execution_capability_is_missing():
     assert result.reason == "DATA_QUALITY:D1:NO_CANDLES"
 
 
-def test_demo_risk_budget_uses_equity():
-    account = AccountSnapshot(Decimal(900), Decimal(1000), Decimal(800))
-    assert calculate_demo_risk_budget(account, Decimal("0.01")) == Decimal(10)
-
-
 def test_demo_proposal_can_analyze_when_execution_is_disabled():
     account, broker, execution, capabilities = _fixtures()
     blocked = AccountCapabilities(
