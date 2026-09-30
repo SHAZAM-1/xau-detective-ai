@@ -154,3 +154,13 @@ def test_repair_engine_blocks_multi_change_apply_without_transaction():
     assert result.applied is False
     assert result.reason == "REPAIR_MULTI_CHANGE_REQUIRES_TRANSACTION"
     assert called is False
+
+def test_repair_engine_blocks_scoped_immutable_policy_targets():
+    assert RepairEngine.validate_change(
+        domain="MT5_ADAPTER",
+        target="STRATEGY:DETAIL",
+    ) is False
+    assert RepairEngine.validate_change(
+        domain="MT5_ADAPTER",
+        target="RISK_POLICY:DETAIL",
+    ) is False
