@@ -50,6 +50,7 @@ class RepairApplyResult:
 RepairExecutor = Callable[[RepairChange], bool]
 
 MULTI_CHANGE_REPAIR_BLOCK_REASON = "REPAIR_MULTI_CHANGE_REQUIRES_TRANSACTION"
+NO_CHANGE_REPAIR_BLOCK_REASON = "REPAIR_NO_CHANGES"
 
 
 class RepairEngine:
@@ -130,6 +131,8 @@ class RepairEngine:
     ) -> RepairApplyResult:
         if not plan.allowed:
             result = RepairApplyResult(False, True, plan.rejection_reason)
+        elif not plan.changes:
+            result = RepairApplyResult(False, True, NO_CHANGE_REPAIR_BLOCK_REASON)
         elif len(plan.changes) > 1:
             result = RepairApplyResult(
                 False,
