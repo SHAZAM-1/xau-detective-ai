@@ -164,3 +164,30 @@ def test_repair_engine_blocks_scoped_immutable_policy_targets():
         domain="MT5_ADAPTER",
         target="RISK_POLICY:DETAIL",
     ) is False
+
+def test_repair_engine_does_not_mark_empty_plan_as_applied():
+    audit = InMemoryAuditLog()
+    engine = RepairEngine(audit)
+    plan = type(
+        "EmptyPlan",
+        (),
+        {
+            "trace_id": "repair-empty",
+            "changes": (),
+            "requires_validation": True,
+            "allowed": True,
+            "rejection_reason": "",
+        },
+    )()
+    called = False
+
+    def executor(_change):
+        nonlocal called
+        called = True
+        return True
+
+    result = engine.apply(plan=plan, executor=executor, now=NOW)
+
+    assert result.applied is False
+    assert result.reason == "REPAIR_NO_CHANGES"
+    assert called is False
