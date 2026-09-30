@@ -17,8 +17,10 @@ from .project_guardian import (
     IMMUTABLE_PROJECT_POLICIES,
     SAFE_REPAIR_DOMAINS,
     GuardianReport,
+    ProjectGuardian,
     RepairProposal,
 )
+
 
 
 @dataclass(frozen=True)
@@ -180,7 +182,7 @@ class RepairEngine:
         """Reject immutable project policies before an executor can run."""
         if domain not in SAFE_REPAIR_DOMAINS:
             return False
-        if target in IMMUTABLE_PROJECT_POLICIES:
+        if ProjectGuardian.is_immutable_change(target):
             return False
         return True
 
