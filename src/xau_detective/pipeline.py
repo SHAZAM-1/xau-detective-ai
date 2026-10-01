@@ -11,6 +11,9 @@ from .evidence_engine import build_evidence
 from .evidence_gate import decide_from_evidence
 from .features import compute_features
 from .liquidity import analyze_liquidity
+from .mean_reversion import analyze_mean_reversion
+from .volume import analyze_volume
+from .zones import analyze_zones
 from .models import (
     AccountSnapshot,
     BrokerSpec,
@@ -156,6 +159,9 @@ def analyze_market(
     h1_structure = analyze_structure(h1)
     m15_features = compute_features(m15, ema_fast_period=9, ema_slow_period=21)
     m15_liquidity = analyze_liquidity(m15)
+    m15_mean_reversion = analyze_mean_reversion(m15)
+    m15_volume = analyze_volume(m15)
+    m15_zones = analyze_zones(m15)
     m15_patterns = detect_candlestick_patterns(m15)
     m15_moves = detect_price_action_moves(m15)
     m15_pattern_read = interpret_pattern_read(m15)
@@ -213,6 +219,11 @@ def analyze_market(
         h1_structure,
         momentum=m15_features.momentum,
         min_independent_families=config.min_evidence_families,
+        mean_reversion=m15_mean_reversion,
+        liquidity=m15_liquidity,
+        volume=m15_volume,
+        zones=m15_zones,
+        current_price=m15[-1].close,
     )
     if d1_regime.trend is TrendState.UP:
         ledger.add_warning("D1_CONTEXT_UP")
