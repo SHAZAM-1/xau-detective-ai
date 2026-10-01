@@ -79,6 +79,9 @@ class MarketAnalysis:
     evidence_supporting: tuple[str, ...]
     evidence_contradicting: tuple[str, ...]
     evidence_warnings: tuple[str, ...]
+    research_evidence_supporting: tuple[str, ...] = ()
+    research_evidence_contradicting: tuple[str, ...] = ()
+    research_evidence_warnings: tuple[str, ...] = ()
     reward_risk: Decimal | None
     candlestick_patterns: tuple[str, ...] = ()
     price_action_moves: tuple[str, ...] = ()
@@ -283,6 +286,9 @@ def analyze_market(
         tuple(ledger.supporting),
         tuple(ledger.contradicting),
         tuple(ledger.warnings),
+        tuple(ledger.research_supporting),
+        tuple(ledger.research_contradicting),
+        tuple(ledger.research_warnings),
         config.min_reward_risk,
         tuple(pattern.name for pattern in m15_patterns[-8:]),
         tuple(move.move.value for move in m15_moves[-8:]),
