@@ -1,0 +1,55 @@
+name: project-health-check
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  health:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install project and test tools
+        run: python -m pip install -e ".[dev]"
+
+      - name: Run tests
+        run: python -m pytest -q
+
+      - name: Run Ruff
+        run: ruff check src tests scripts
+
+      - name: Run project health check
+        env:
+          HEALTH_BASE_SHA: ${{ github.event.before || github.event.pull_request.base.sha || github.sha }}
+          HEALTH_HEAD_SHA: ${{ github.sha }}
+        run: |
+          mkdir -p health-report
+          set +e
+          python scripts/project_health_check.py --base "$HEALTH_BASE_SHA" --head "$HEALTH_HEAD_SHA" | tee health-report/project-health-report.md
+          status=${PIPESTATUS[0]}
+          echo "## Project Health Check" >> "$GITHUB_STEP_SUMMARY"
+          cat health-report/project-health-report.md >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+
+      - name: Upload health report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: project-health-report
+          path: health-report/project-health-report.md
