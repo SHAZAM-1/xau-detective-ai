@@ -1,5 +1,8 @@
 from decimal import Decimal
 
+from datetime import UTC, datetime
+
+from xau_detective.cross_market import CrossMarketObservation, classify_cross_market_context
 from xau_detective.evidence_engine import build_evidence
 from xau_detective.liquidity import LiquiditySnapshot
 from xau_detective.mean_reversion import MeanReversionSignal
@@ -110,4 +113,24 @@ def test_research_families_record_conflicts_without_gating_decisions():
     assert "liquidity_sweep_high_conflict" in ledger.research_contradicting
     assert "volume_pressure_conflict" in ledger.research_contradicting
     assert "resistance_zone_conflict" in ledger.research_contradicting
+    assert not ledger.has_conflict
+
+
+def test_cross_market_context_stays_research_only():
+    context = classify_cross_market_context(
+        CrossMarketObservation(
+            timestamp=datetime(2026, 10, 1, tzinfo=UTC),
+            dxy_return=Decimal("-0.2"),
+            real_yield_change=Decimal("-0.05"),
+        )
+    )
+    ledger = build_evidence(
+        Direction.BUY,
+        snapshot(),
+        structure(),
+        momentum=Decimal("0.01"),
+        cross_market=context,
+    )
+    assert "cross_market:GOLD_CONTEXT=GOLD_SUPPORTIVE_CONTEXT" in ledger.research_warnings
+    assert ledger.independent_evidence_count == 3
     assert not ledger.has_conflict
