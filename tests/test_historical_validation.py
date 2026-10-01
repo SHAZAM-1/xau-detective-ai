@@ -52,7 +52,7 @@ def test_validate_historical_csv_builds_oos_and_walk_forward_report(tmp_path: Pa
             walk_forward_train_size=10,
             walk_forward_test_size=5,
             walk_forward_step_size=5,
-            horizons=(1,),
+            horizons=(1, 3, 5),
         ),
     )
 

@@ -37,6 +37,18 @@ def test_chronological_split_never_shuffles():
     assert train[-1].timestamp < test[0].timestamp
 
 
+def test_chronological_split_purges_forward_labels_crossing_test_boundary():
+    rows = _rows(10)
+    train, test = chronological_split(
+        rows,
+        train_fraction=Decimal("0.5"),
+        purge_horizon=2,
+    )
+    assert [row.index for row in train] == [0, 1, 2]
+    assert test[0].index == 5
+    assert all(row.index + row.horizon < test[0].index for row in train)
+
+
 def test_oos_has_disjoint_time_windows():
     result = evaluate_out_of_sample(_rows())
     assert result.train.observations == 14
