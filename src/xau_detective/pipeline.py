@@ -79,10 +79,10 @@ class MarketAnalysis:
     evidence_supporting: tuple[str, ...]
     evidence_contradicting: tuple[str, ...]
     evidence_warnings: tuple[str, ...]
+    reward_risk: Decimal | None
     research_evidence_supporting: tuple[str, ...] = ()
     research_evidence_contradicting: tuple[str, ...] = ()
     research_evidence_warnings: tuple[str, ...] = ()
-    reward_risk: Decimal | None
     candlestick_patterns: tuple[str, ...] = ()
     price_action_moves: tuple[str, ...] = ()
 
