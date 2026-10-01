@@ -68,3 +68,52 @@ def test_stop_wins_tie_against_target_when_both_touch():
         BacktestConfig(tick_size=Decimal(1), tick_value=Decimal(1)),
     )
     assert result.trades[0].exit_reason == "STOP_LOSS"
+
+
+def test_validation_metrics_calculate_supported_summary():
+    from xau_detective.validation_metrics import calculate_backtest_metrics
+
+    candles = (
+        candle(0, 100, 101, 99, 100),
+        candle(1, 100, 104, 100, 103),
+        candle(2, 103, 106, 102, 105),
+        candle(3, 105, 106, 101, 102),
+        candle(4, 102, 103, 100, 101),
+    )
+
+    def signal(index, _history):
+        if index == 0:
+            return TradePlan(Direction.BUY, Decimal(99), Decimal(104), Decimal(1))
+        if index == 2:
+            return TradePlan(Direction.BUY, Decimal(104), Decimal(110), Decimal(1))
+        return None
+
+    result = run_backtest(
+        candles,
+        signal,
+        BacktestConfig(tick_size=Decimal(1), tick_value=Decimal(1)),
+    )
+    metrics = calculate_backtest_metrics(result)
+
+    assert metrics.trade_count == 2
+    assert metrics.net_pnl == Decimal(1)
+    assert metrics.expectancy == Decimal("0.5")
+    assert metrics.profit_factor == Decimal("1.25")
+    assert metrics.max_drawdown == Decimal(4)
+    assert metrics.win_rate == Decimal("0.5")
+    assert metrics.max_loss_streak == 1
+
+
+def test_validation_metrics_handle_empty_results_without_inference():
+    from xau_detective.backtest import BacktestResult
+    from xau_detective.validation_metrics import calculate_backtest_metrics
+
+    metrics = calculate_backtest_metrics(
+        BacktestResult((), Decimal(0), 0, 0, 0, Decimal(0))
+    )
+
+    assert metrics.trade_count == 0
+    assert metrics.expectancy == Decimal(0)
+    assert metrics.profit_factor is None
+    assert metrics.win_rate == Decimal(0)
+    assert metrics.max_loss_streak == 0
