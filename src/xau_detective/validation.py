@@ -1,8 +1,8 @@
 """Leakage-safe out-of-sample and walk-forward validation for research datasets.
 
 This module evaluates already-built point-in-time-safe observations. It never
-shuffles time-series rows and can purge training observations whose forward
-outcome horizon would cross into the corresponding test window.
+selects patterns using the test period and never shuffles time-series rows.
+Results are descriptive validation statistics, not trade signals.
 """
 from __future__ import annotations
 
@@ -75,114 +75,37 @@ def _ordered(rows: tuple[PatternDatasetRow, ...]) -> tuple[PatternDatasetRow, ..
     )
 
 
-def _boundary_index(
-    rows: tuple[PatternDatasetRow, ...],
-    target: int,
-) -> int:
-    """Move a row-count target to the next complete source-candle boundary."""
-    if target <= 0:
-        return 0
-    if target >= len(rows):
-        return len(rows)
-
-    boundary_timestamp = rows[target].timestamp
-    boundary_timeframe = rows[target].timeframe
-    boundary_source_index = rows[target].index
-
-    while target > 0:
-        previous = rows[target - 1]
-        if (
-            previous.timestamp != boundary_timestamp
-            or previous.timeframe != boundary_timeframe
-            or previous.index != boundary_source_index
-        ):
-            break
-        target -= 1
-
-    return target
-
-
-def _purge_training_rows(
-    rows: tuple[PatternDatasetRow, ...],
-    *,
-    test_start_source_index: int,
-    purge_horizon: int,
-) -> tuple[PatternDatasetRow, ...]:
-    """Exclude training labels whose forward horizon reaches the test window."""
-    if purge_horizon < 0:
-        raise ValueError("purge_horizon must be non-negative")
-    if purge_horizon == 0:
-        return rows
-
-    return tuple(
-        row
-        for row in rows
-        if row.index + row.horizon < test_start_source_index
-    )
-
-
 def chronological_split(
     rows: tuple[PatternDatasetRow, ...],
     *,
     train_fraction: Decimal = Decimal("0.70"),
-    purge_horizon: int = 0,
 ) -> tuple[tuple[PatternDatasetRow, ...], tuple[PatternDatasetRow, ...]]:
-    """Split chronologically with an optional forward-label purge.
-
-    purge_horizon is expressed in source bars and should be at least the
-    largest label horizon when the dataset contains multiple horizons.
-    """
+    """Split chronologically; the boundary is never shuffled."""
     if not rows:
         return (), ()
     if not Decimal(0) < train_fraction < Decimal(1):
         raise ValueError("train_fraction must be between 0 and 1")
-    if purge_horizon < 0:
-        raise ValueError("purge_horizon must be non-negative")
 
     ordered = _ordered(rows)
     split = int(Decimal(len(ordered)) * train_fraction)
     split = max(1, min(split, len(ordered) - 1))
-    split = _boundary_index(ordered, split)
-
-    if split <= 0:
-        raise ValueError("train/test split has no complete source-candle boundary")
-
-    train = ordered[:split]
-    test = ordered[split:]
-    train = _purge_training_rows(
-        train,
-        test_start_source_index=test[0].index,
-        purge_horizon=purge_horizon,
-    )
-    if not train:
-        raise ValueError("purging removed all training observations")
-    return train, test
+    return ordered[:split], ordered[split:]
 
 
 def evaluate_out_of_sample(
     rows: tuple[PatternDatasetRow, ...],
     *,
     train_fraction: Decimal = Decimal("0.70"),
-    purge_horizon: int = 0,
 ) -> OutOfSampleResult:
     """Evaluate a fixed research set with a chronological train/test split."""
-    train, test = chronological_split(
-        rows,
-        train_fraction=train_fraction,
-        purge_horizon=purge_horizon,
-    )
-    ordered = _ordered(rows)
-    test_start = next(
-        index for index, row in enumerate(ordered) if row == test[0]
-    )
-    test_end = len(ordered) - 1
-    train_end = test_start - 1
+    train, test = chronological_split(rows, train_fraction=train_fraction)
+    ordered = train + test
     return OutOfSampleResult(
         train=_metrics(train),
         test=_metrics(test),
-        train_end_index=train_end,
-        test_start_index=test_start,
-        test_end_index=test_end,
+        train_end_index=len(train) - 1,
+        test_start_index=len(train),
+        test_end_index=len(ordered) - 1,
     )
 
 
@@ -193,21 +116,17 @@ def walk_forward(
     test_size: int,
     step_size: int | None = None,
     min_train_observations: int = 1,
-    purge_horizon: int = 0,
 ) -> tuple[WalkForwardFold, ...]:
-    """Run rolling chronological train/test folds with optional label purging.
+    """Run rolling chronological train/test folds.
 
     No observation from a fold's test window is available to that fold's
-    training labels. The function intentionally does not optimize parameters;
+    training window. The function intentionally does not optimize parameters;
     it only measures stability across time.
     """
     if train_size <= 0 or test_size <= 0:
         raise ValueError("train_size and test_size must be positive")
     if min_train_observations <= 0:
         raise ValueError("min_train_observations must be positive")
-    if purge_horizon < 0:
-        raise ValueError("purge_horizon must be non-negative")
-
     step = test_size if step_size is None else step_size
     if step <= 0:
         raise ValueError("step_size must be positive")
@@ -218,25 +137,9 @@ def walk_forward(
     fold_number = 1
 
     while start + train_size + test_size <= len(ordered):
-        test_start = _boundary_index(ordered, start + train_size)
-        if test_start <= start or test_start >= len(ordered):
-            break
-
-        test_end = min(test_start + test_size, len(ordered))
-        train = ordered[start:test_start]
-        test = ordered[test_start:test_end]
-        if not test:
-            break
-
-        if folds and test_start <= folds[-1].test_end_index:
-            start += step
-            continue
-
-        train = _purge_training_rows(
-            train,
-            test_start_source_index=test[0].index,
-            purge_horizon=purge_horizon,
-        )
+        train = ordered[start : start + train_size]
+        test_start = start + train_size
+        test = ordered[test_start : test_start + test_size]
         if len(train) >= min_train_observations:
             folds.append(
                 WalkForwardFold(
@@ -244,13 +147,12 @@ def walk_forward(
                     train_start_index=start,
                     train_end_index=test_start - 1,
                     test_start_index=test_start,
-                    test_end_index=test_end - 1,
+                    test_end_index=test_start + test_size - 1,
                     train=_metrics(train),
                     test=_metrics(test),
                 )
             )
             fold_number += 1
-
         start += step
 
     return tuple(folds)

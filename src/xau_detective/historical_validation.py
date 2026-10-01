@@ -4,7 +4,6 @@ This module wires together an already validated historical CSV, the
 point-in-time-safe pattern dataset builder, and chronological OOS/walk-forward
 descriptive metrics. It does not create trading signals or alter policy.
 """
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -52,6 +51,13 @@ def validate_historical_csv(
     strict_interval: bool = True,
 ) -> HistoricalValidationReport:
     """Run descriptive historical validation only when source quality is usable."""
+    if not config.horizons or any(horizon <= 0 for horizon in config.horizons):
+        raise ValueError("horizons must contain only positive values")
+    if config.walk_forward_train_size <= 0 or config.walk_forward_test_size <= 0:
+        raise ValueError("walk-forward train/test sizes must be positive")
+    if config.walk_forward_step_size <= 0:
+        raise ValueError("walk-forward step size must be positive")
+
     dataset = load_historical_csv(
         path,
         symbol=symbol,
@@ -63,19 +69,30 @@ def validate_historical_csv(
         reasons = ", ".join(dataset.quality.reasons)
         raise ValueError(f"historical dataset is not usable: {reasons}")
 
-    pattern_rows = build_pattern_dataset({timeframe.value: dataset.candles}, horizons=config.horizons)
+    pattern_rows = build_pattern_dataset(
+        {timeframe.value: dataset.candles},
+        horizons=config.horizons,
+    )
     if len(pattern_rows) < 2:
         raise ValueError("historical dataset produced fewer than two research observations")
 
-    out_of_sample = evaluate_out_of_sample(pattern_rows, train_fraction=config.train_fraction)
+    purge_horizon = max(config.horizons)
+    out_of_sample = evaluate_out_of_sample(
+        pattern_rows,
+        train_fraction=config.train_fraction,
+        purge_horizon=purge_horizon,
+    )
     folds = walk_forward(
         pattern_rows,
         train_size=config.walk_forward_train_size,
         test_size=config.walk_forward_test_size,
         step_size=config.walk_forward_step_size,
+        purge_horizon=purge_horizon,
     )
-    walk_forward_test = aggregate_test_metrics(folds) if folds else ValidationMetrics(
-        0, 0, Decimal(0), Decimal(0), Decimal(0), Decimal(0)
+    walk_forward_test = (
+        aggregate_test_metrics(folds)
+        if folds
+        else ValidationMetrics(0, 0, Decimal(0), Decimal(0), Decimal(0), Decimal(0))
     )
     return HistoricalValidationReport(
         dataset=dataset,
