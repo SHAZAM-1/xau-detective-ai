@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal
 from statistics import median
 
@@ -158,7 +159,7 @@ def study_patterns(
 class PatternDatasetRow:
     timeframe: str
     pattern: str
-    timestamp: object
+    timestamp: datetime
     index: int
     direction: str
     confidence: Decimal
