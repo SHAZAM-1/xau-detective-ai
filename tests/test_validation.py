@@ -10,7 +10,7 @@ from xau_detective.validation import (
 )
 
 
-def _rows(count: int = 20) -> tuple[PatternDatasetRow, ...]:
+def _rows(count: int = 20, horizon: int = 1) -> tuple[PatternDatasetRow, ...]:
     start = datetime(2026, 1, 1, tzinfo=timezone.utc)
     return tuple(
         PatternDatasetRow(
@@ -20,7 +20,7 @@ def _rows(count: int = 20) -> tuple[PatternDatasetRow, ...]:
             index=i,
             direction="BULLISH" if i % 2 == 0 else "BEARISH",
             confidence=Decimal("0.8"),
-            horizon=1,
+            horizon=horizon,
             forward_return=Decimal("0.01") if i % 3 else Decimal("-0.005"),
             mfe=Decimal("0.02"),
             mae=Decimal("0.005"),
@@ -38,7 +38,7 @@ def test_chronological_split_never_shuffles():
 
 
 def test_chronological_split_purges_forward_labels_crossing_test_boundary():
-    rows = _rows(10)
+    rows = _rows(10, horizon=2)
     train, test = chronological_split(
         rows,
         train_fraction=Decimal("0.5"),
