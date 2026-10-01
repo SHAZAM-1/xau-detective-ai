@@ -52,90 +52,62 @@ def test_evidence_records_conflict():
     assert "regime_trend_conflict" in ledger.contradicting
 
 
-def test_research_families_add_directional_evidence():
+def test_research_families_are_auditable_but_not_decision_evidence():
     ledger = build_evidence(
         Direction.BUY,
         snapshot(),
         structure(),
         momentum=Decimal("0.01"),
         mean_reversion=MeanReversionSignal(
-            "BUY",
-            Decimal("-2.1"),
-            Decimal("100"),
-            Decimal("2"),
-            ("re-entry",),
+            "BUY", Decimal("-2.1"), Decimal("100"), Decimal("2"), ("re-entry",)
         ),
         liquidity=LiquiditySnapshot(
-            Decimal("105"),
-            Decimal("95"),
-            False,
-            True,
-            False,
-            False,
+            Decimal("105"), Decimal("95"), False, True, False, False
         ),
         volume=VolumeAnalysis(
-            "TICK",
-            Decimal("200"),
-            Decimal("100"),
-            Decimal("2"),
-            "EXPANSION",
-            "BULLISH_PROXY",
-            ("tick-volume",),
+            "TICK", Decimal("200"), Decimal("100"), Decimal("2"),
+            "EXPANSION", "BULLISH_PROXY", ("tick-volume",)
         ),
         zones=ZoneAnalysis(
             (PriceZone("SUPPORT", Decimal("99"), Decimal("101"), Decimal("100"), 2),),
             (),
         ),
         current_price=Decimal("100"),
-        min_independent_families=3,
     )
 
-    assert "mean_reversion_alignment" in ledger.supporting
-    assert "liquidity_sweep_low" in ledger.supporting
-    assert "volume_bullish_proxy" in ledger.supporting
-    assert "support_zone_location" in ledger.supporting
-    assert ledger.independent_evidence_count >= 7
+    assert "mean_reversion_alignment" in ledger.research_supporting
+    assert "liquidity_sweep_low" in ledger.research_supporting
+    assert "volume_bullish_proxy" in ledger.research_supporting
+    assert "support_zone_location" in ledger.research_supporting
+    assert ledger.independent_evidence_count == 3
+    assert not ledger.has_conflict
 
 
-def test_research_families_record_conflicts_without_inventing_order_flow():
+def test_research_families_record_conflicts_without_gating_decisions():
     ledger = build_evidence(
         Direction.BUY,
         snapshot(),
         structure(),
         momentum=Decimal("0.01"),
         mean_reversion=MeanReversionSignal(
-            "SELL",
-            Decimal("2.1"),
-            Decimal("100"),
-            Decimal("2"),
-            ("re-entry",),
+            "SELL", Decimal("2.1"), Decimal("100"), Decimal("2"), ("re-entry",)
         ),
         liquidity=LiquiditySnapshot(
-            Decimal("105"),
-            Decimal("95"),
-            True,
-            False,
-            False,
-            False,
+            Decimal("105"), Decimal("95"), True, False, False, False
         ),
         volume=VolumeAnalysis(
-            "TICK",
-            Decimal("200"),
-            Decimal("100"),
-            Decimal("2"),
-            "EXPANSION",
-            "BEARISH_PROXY",
-            ("tick-volume",),
+            "TICK", Decimal("200"), Decimal("100"), Decimal("2"),
+            "EXPANSION", "BEARISH_PROXY", ("tick-volume",)
         ),
         zones=ZoneAnalysis(
             (),
             (PriceZone("RESISTANCE", Decimal("99"), Decimal("101"), Decimal("100"), 2),),
         ),
         current_price=Decimal("100"),
-        min_independent_families=3,
     )
 
-    assert "mean_reversion_conflict" in ledger.contradicting
-    assert "liquidity_sweep_high_conflict" in ledger.contradicting
-    assert "volume_pressure_conflict" in ledger.contradicting
-    assert "resistance_zone_conflict" in ledger.contradicting
+    assert "mean_reversion_conflict" in ledger.research_contradicting
+    assert "liquidity_sweep_high_conflict" in ledger.research_contradicting
+    assert "volume_pressure_conflict" in ledger.research_contradicting
+    assert "resistance_zone_conflict" in ledger.research_contradicting
+    assert not ledger.has_conflict
