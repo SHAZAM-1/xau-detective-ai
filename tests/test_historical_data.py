@@ -67,6 +67,45 @@ def test_load_historical_csv_reports_data_gaps(tmp_path: Path):
     assert "DATA_GAP" in dataset.quality.reasons
 
 
+def test_load_historical_csv_propagates_non_monotonic_quality(tmp_path: Path):
+    path = tmp_path / "xau.csv"
+    path.write_text(
+        "timestamp,open,high,low,close\n"
+        "2026-01-01T01:00:00Z,4300,4310,4290,4305\n"
+        "2026-01-01T00:00:00Z,4305,4320,4300,4315\n",
+        encoding="utf-8",
+    )
+
+    dataset = load_historical_csv(
+        path,
+        symbol="XAUUSD",
+        timeframe=Timeframe.H1,
+        source="test-fixture",
+    )
+
+    assert not dataset.quality.usable
+    assert "NON_MONOTONIC_TIMESTAMPS" in dataset.quality.reasons
+
+
+def test_load_historical_csv_propagates_invalid_ohlc_quality(tmp_path: Path):
+    path = tmp_path / "xau.csv"
+    path.write_text(
+        "timestamp,open,high,low,close\n"
+        "2026-01-01T00:00:00Z,4300,4290,4280,4305\n",
+        encoding="utf-8",
+    )
+
+    dataset = load_historical_csv(
+        path,
+        symbol="XAUUSD",
+        timeframe=Timeframe.H1,
+        source="test-fixture",
+    )
+
+    assert not dataset.quality.usable
+    assert "INVALID_OHLC" in dataset.quality.reasons
+
+
 def test_load_historical_csv_rejects_missing_columns(tmp_path: Path):
     path = tmp_path / "xau.csv"
     path.write_text(
