@@ -40,7 +40,7 @@ def test_validate_historical_csv_requires_usable_source_quality(tmp_path: Path):
 
 def test_validate_historical_csv_builds_oos_and_walk_forward_report(tmp_path: Path):
     path = tmp_path / "good.csv"
-    _csv(path, count=40)
+    _csv(path, count=120)
 
     report = validate_historical_csv(
         path,
