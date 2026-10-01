@@ -286,10 +286,10 @@ def analyze_market(
         tuple(ledger.supporting),
         tuple(ledger.contradicting),
         tuple(ledger.warnings),
+        config.min_reward_risk,
         tuple(ledger.research_supporting),
         tuple(ledger.research_contradicting),
         tuple(ledger.research_warnings),
-        config.min_reward_risk,
         tuple(pattern.name for pattern in m15_patterns[-8:]),
         tuple(move.move.value for move in m15_moves[-8:]),
     )
