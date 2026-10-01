@@ -228,6 +228,10 @@ def walk_forward(
         if not test:
             break
 
+        if folds and test_start <= folds[-1].test_end_index:
+            start += step
+            continue
+
         train = _purge_training_rows(
             train,
             test_start_source_index=test[0].index,
