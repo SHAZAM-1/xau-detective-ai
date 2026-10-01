@@ -58,3 +58,20 @@ def test_guardian_clean_history_is_safe():
     assert report.safe is True
     assert report.findings == ()
     assert report.proposals == ()
+
+
+def test_guardian_immutable_namespace_is_case_and_whitespace_insensitive():
+    assert ProjectGuardian.is_immutable_change(" strategy ") is True
+    assert ProjectGuardian.is_immutable_change("StRaTeGy : detail") is True
+    assert ProjectGuardian.is_immutable_change("S T R A T E G Y") is True
+
+
+def test_guardian_repair_change_requires_matching_safe_domain_and_target():
+    assert ProjectGuardian.validate_repair_change(
+        domain="TESTS",
+        target="TESTS",
+    ) is True
+    assert ProjectGuardian.validate_repair_change(
+        domain="TESTS",
+        target="LINT",
+    ) is False

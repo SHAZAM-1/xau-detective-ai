@@ -173,10 +173,28 @@ class ProjectGuardian:
         return domain in SAFE_REPAIR_DOMAINS
 
     @staticmethod
+    def normalize_policy_target(target: str) -> str:
+        """Canonicalize policy targets so case/whitespace cannot bypass gates."""
+        return "".join(target.split()).upper()
+
+    @staticmethod
     def is_immutable_change(target: str) -> bool:
-        return target in IMMUTABLE_PROJECT_POLICIES or any(
-            target.startswith(f"{policy}:")
+        normalized = ProjectGuardian.normalize_policy_target(target)
+        return normalized in IMMUTABLE_PROJECT_POLICIES or any(
+            normalized.startswith(f"{policy}:")
             for policy in IMMUTABLE_PROJECT_POLICIES
+        )
+
+    @staticmethod
+    def validate_repair_change(*, domain: str, target: str) -> bool:
+        """Validate the complete domain/target boundary before execution."""
+        if domain not in SAFE_REPAIR_DOMAINS:
+            return False
+        if ProjectGuardian.is_immutable_change(target):
+            return False
+        return (
+            ProjectGuardian.normalize_policy_target(target)
+            == ProjectGuardian.normalize_policy_target(domain)
         )
 
     def evidence_for_reason(self, reason: str) -> tuple[AuditEvent, ...]:

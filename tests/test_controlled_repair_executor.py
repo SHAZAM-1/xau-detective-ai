@@ -125,3 +125,76 @@ def test_blocked_execution_is_audited() -> None:
     event = audit.events()[-1]
     assert event.status == "BLOCKED"
     assert event.reason == "GUARDIAN_BLOCKED"
+
+
+def test_empty_plan_is_blocked_and_audited():
+    audit = InMemoryAuditLog()
+    executor = ControlledRepairExecutor({}, audit_log=audit)
+
+    result = executor.execute(plan())
+
+    assert result.applied is False
+    assert result.executed == 0
+    assert result.reason == "REPAIR_NO_CHANGES"
+    assert audit.events()[-1].status == "BLOCKED"
+
+
+def test_immutable_target_case_and_whitespace_bypass_is_blocked():
+    called = False
+
+    def handler(_item):
+        nonlocal called
+        called = True
+        return True
+
+    executor = ControlledRepairExecutor({"TESTS": handler})
+
+    result = executor.execute(plan(change("TESTS", " strategy : detail ")))
+
+    assert result.applied is False
+    assert result.reason == "REPAIR_POLICY_BLOCKED: strategy : detail "
+    assert called is False
+
+
+def test_domain_target_mismatch_is_blocked_before_handler():
+    called = False
+
+    def handler(_item):
+        nonlocal called
+        called = True
+        return True
+
+    executor = ControlledRepairExecutor({"TESTS": handler})
+
+    result = executor.execute(plan(change("TESTS", "LINT")))
+
+    assert result.applied is False
+    assert result.reason == "REPAIR_POLICY_BLOCKED:LINT"
+    assert called is False
+
+
+def test_falsey_and_non_boolean_handler_results_fail_closed():
+    for handler_result in (False, None, 1, object()):
+        executor = ControlledRepairExecutor(
+            {"TESTS": lambda _item, value=handler_result: value}
+        )
+        result = executor.execute(plan(change("TESTS")))
+        assert result.applied is False
+        assert result.reason == "REPAIR_HANDLER_FAILED:TESTS"
+
+
+def test_validation_flag_cannot_be_disabled_at_executor_boundary():
+    executor = ControlledRepairExecutor({"TESTS": lambda _item: True})
+    disabled = RepairPlan(
+        trace_id="executor-validation-disabled",
+        changes=(change("TESTS"),),
+        requires_validation=False,
+        allowed=True,
+        rejection_reason="",
+    )
+
+    result = executor.execute(disabled)
+
+    assert result.applied is False
+    assert result.executed == 0
+    assert result.reason == "REPAIR_VALIDATION_REQUIRED"

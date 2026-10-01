@@ -182,12 +182,11 @@ class RepairEngine:
 
     @staticmethod
     def validate_change(*, domain: str, target: str) -> bool:
-        """Reject immutable project policies before an executor can run."""
-        if domain not in SAFE_REPAIR_DOMAINS:
-            return False
-        if ProjectGuardian.is_immutable_change(target):
-            return False
-        return True
+        """Reject unsafe domain/target pairs before an executor can run."""
+        return ProjectGuardian.validate_repair_change(
+            domain=domain,
+            target=target,
+        )
 
     @staticmethod
     def _target_for_domain(domain: str) -> str:

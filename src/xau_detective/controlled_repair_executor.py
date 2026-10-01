@@ -12,9 +12,10 @@ from datetime import UTC, datetime
 from typing import Callable, Mapping
 
 from .audit_log import AuditEvent, AuditLog
-from .project_guardian import IMMUTABLE_PROJECT_POLICIES, SAFE_REPAIR_DOMAINS
+from .project_guardian import ProjectGuardian
 from .repair_engine import (
     MULTI_CHANGE_REPAIR_BLOCK_REASON,
+    NO_CHANGE_REPAIR_BLOCK_REASON,
     RepairChange,
     RepairPlan,
 )
@@ -43,9 +44,9 @@ class ControlledRepairExecutor:
 
     @staticmethod
     def validate_change(change: RepairChange) -> bool:
-        return (
-            change.domain in SAFE_REPAIR_DOMAINS
-            and change.target not in IMMUTABLE_PROJECT_POLICIES
+        return ProjectGuardian.validate_repair_change(
+            domain=change.domain,
+            target=change.target,
         )
 
     def _record(
@@ -77,6 +78,34 @@ class ControlledRepairExecutor:
                 status="BLOCKED",
                 reason=result.reason,
                 details={"executed": 0},
+            )
+            return result
+
+        if not plan.changes:
+            result = RepairExecutionResult(
+                False,
+                0,
+                NO_CHANGE_REPAIR_BLOCK_REASON,
+            )
+            self._record(
+                plan=plan,
+                status="BLOCKED",
+                reason=result.reason,
+                details={"executed": 0, "changes": 0},
+            )
+            return result
+
+        if not plan.requires_validation:
+            result = RepairExecutionResult(
+                False,
+                0,
+                "REPAIR_VALIDATION_REQUIRED",
+            )
+            self._record(
+                plan=plan,
+                status="BLOCKED",
+                reason=result.reason,
+                details={"executed": 0, "validation_required": False},
             )
             return result
 
@@ -123,7 +152,7 @@ class ControlledRepairExecutor:
                     details={"executed": executed, "domain": change.domain},
                 )
                 return result
-            if not handler(change):
+            if handler(change) is not True:
                 result = RepairExecutionResult(
                     False,
                     executed,

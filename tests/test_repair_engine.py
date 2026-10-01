@@ -191,3 +191,14 @@ def test_repair_engine_does_not_mark_empty_plan_as_applied():
     assert result.applied is False
     assert result.reason == "REPAIR_NO_CHANGES"
     assert called is False
+
+
+def test_repair_engine_blocks_domain_target_mismatch():
+    assert RepairEngine.validate_change(
+        domain="TESTS",
+        target="LINT",
+    ) is False
+    assert RepairEngine.validate_change(
+        domain="TESTS",
+        target=" tests : detail ",
+    ) is False
