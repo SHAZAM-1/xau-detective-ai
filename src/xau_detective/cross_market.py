@@ -8,6 +8,7 @@ validated.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal
 
 
@@ -15,7 +16,7 @@ from decimal import Decimal
 class CrossMarketObservation:
     """One timestamp-aligned external-market observation."""
 
-    timestamp: object
+    timestamp: datetime
     dxy_close: Decimal | None = None
     real_yield: Decimal | None = None
     dxy_return: Decimal | None = None
