@@ -75,3 +75,17 @@ def test_guardian_repair_change_requires_matching_safe_domain_and_target():
         domain="TESTS",
         target="LINT",
     ) is False
+
+
+def test_guardian_rejects_non_string_repair_boundaries():
+    invalid_values = (None, 1, object())
+    for value in invalid_values:
+        assert ProjectGuardian.validate_repair_change(
+            domain=value,
+            target="TESTS",
+        ) is False
+        assert ProjectGuardian.validate_repair_change(
+            domain="TESTS",
+            target=value,
+        ) is False
+        assert ProjectGuardian.is_immutable_change(value) is False

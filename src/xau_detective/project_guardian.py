@@ -170,11 +170,13 @@ class ProjectGuardian:
 
     @staticmethod
     def validate_repair_domain(domain: str) -> bool:
-        return domain in SAFE_REPAIR_DOMAINS
+        return isinstance(domain, str) and domain in SAFE_REPAIR_DOMAINS
 
     @staticmethod
     def normalize_policy_target(target: str) -> str:
         """Canonicalize policy targets so case/whitespace cannot bypass gates."""
+        if not isinstance(target, str):
+            return ""
         return "".join(target.split()).upper()
 
     @staticmethod
@@ -188,7 +190,9 @@ class ProjectGuardian:
     @staticmethod
     def validate_repair_change(*, domain: str, target: str) -> bool:
         """Validate the complete domain/target boundary before execution."""
-        if domain not in SAFE_REPAIR_DOMAINS:
+        if not isinstance(domain, str) or not isinstance(target, str):
+            return False
+        if not ProjectGuardian.validate_repair_domain(domain):
             return False
         if ProjectGuardian.is_immutable_change(target):
             return False
