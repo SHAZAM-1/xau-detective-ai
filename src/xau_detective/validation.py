@@ -117,7 +117,7 @@ def _purge_training_rows(
     return tuple(
         row
         for row in rows
-        if row.index + row.horizon < test_start_source_index
+        if row.index + max(row.horizon, purge_horizon) < test_start_source_index
     )
 
 
