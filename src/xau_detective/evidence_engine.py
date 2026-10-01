@@ -4,6 +4,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 from .evidence import EvidenceLedger
+from .cross_market import CrossMarketContext
 from .liquidity import LiquiditySnapshot
 from .mean_reversion import MeanReversionSignal
 from .models import Direction
@@ -25,6 +26,7 @@ def build_evidence(
     volume: VolumeAnalysis | None = None,
     zones: ZoneAnalysis | None = None,
     current_price: Decimal | None = None,
+    cross_market: CrossMarketContext | None = None,
 ) -> EvidenceLedger:
     ledger = EvidenceLedger(direction)
 
@@ -89,6 +91,10 @@ def build_evidence(
             ledger.add_research_contradiction("volume_pressure_conflict")
         else:
             ledger.add_research_warning("volume_pressure_neutral")
+
+    if cross_market is not None:
+        for item in cross_market.evidence:
+            ledger.add_research_warning(f"cross_market:{item}")
 
     if zones is not None and current_price is not None:
         near_support = any(zone.low <= current_price <= zone.high for zone in zones.support)
