@@ -15,7 +15,6 @@ from typing import Callable
 from .audit_log import AuditEvent, AuditLog
 from .project_guardian import (
     IMMUTABLE_PROJECT_POLICIES,
-    SAFE_REPAIR_DOMAINS,
     GuardianReport,
     ProjectGuardian,
     RepairProposal,
