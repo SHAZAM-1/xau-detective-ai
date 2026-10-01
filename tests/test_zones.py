@@ -18,11 +18,11 @@ def _candle(i: int, low: str, high: str, close: str) -> Candle:
 def test_zones_cluster_repeated_swing_levels() -> None:
     candles = (
         _candle(0, "99", "101", "100"),
-        _candle(1, "95", "101", "97"),
-        _candle(2, "98", "103", "102"),
-        _candle(3, "96", "101", "98"),
-        _candle(4, "98", "104", "103"),
-        _candle(5, "99", "105", "104"),
+        _candle(1, "95", "102", "97"),
+        _candle(2, "98", "105", "102"),
+        _candle(3, "95", "103", "98"),
+        _candle(4, "98", "105", "103"),
+        _candle(5, "99", "104", "104"),
         _candle(6, "100", "106", "105"),
     )
     result = analyze_zones(tuple(candles), tolerance_fraction=Decimal("0.02"))
