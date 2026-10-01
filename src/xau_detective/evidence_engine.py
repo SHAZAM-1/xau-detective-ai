@@ -7,6 +7,7 @@ from .evidence import EvidenceLedger
 from .cross_market import CrossMarketContext
 from .liquidity import LiquiditySnapshot
 from .macro_events import MacroContext
+from .news_regime import NewsContext
 from .mean_reversion import MeanReversionSignal
 from .models import Direction
 from .regime import RegimeSnapshot, TrendState, VolatilityState
@@ -29,6 +30,7 @@ def build_evidence(
     current_price: Decimal | None = None,
     cross_market: CrossMarketContext | None = None,
     macro_events: tuple[MacroContext, ...] = (),
+    news_context: NewsContext | None = None,
 ) -> EvidenceLedger:
     ledger = EvidenceLedger(direction)
 
@@ -101,6 +103,10 @@ def build_evidence(
     for event in macro_events:
         for item in event.evidence:
             ledger.add_research_warning(f"macro:{item}")
+
+    if news_context is not None:
+        for item in news_context.evidence:
+            ledger.add_research_warning(f"news:{item}")
 
     if zones is not None and current_price is not None:
         near_support = any(zone.low <= current_price <= zone.high for zone in zones.support)
