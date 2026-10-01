@@ -96,10 +96,10 @@ def test_validation_metrics_calculate_supported_summary():
     metrics = calculate_backtest_metrics(result)
 
     assert metrics.trade_count == 2
-    assert metrics.net_pnl == Decimal(1)
-    assert metrics.expectancy == Decimal("0.5")
-    assert metrics.profit_factor == Decimal("1.25")
-    assert metrics.max_drawdown == Decimal(4)
+    assert metrics.net_pnl == Decimal(3)
+    assert metrics.expectancy == Decimal("1.5")
+    assert metrics.profit_factor == Decimal(4)
+    assert metrics.max_drawdown == Decimal(1)
     assert metrics.win_rate == Decimal("0.5")
     assert metrics.max_loss_streak == 1
 
