@@ -89,11 +89,11 @@ def validate_historical_csv(
         step_size=config.walk_forward_step_size,
         purge_horizon=purge_horizon,
     )
-    walk_forward_test = (
-        aggregate_test_metrics(folds)
-        if folds
-        else ValidationMetrics(0, 0, Decimal(0), Decimal(0), Decimal(0), Decimal(0))
-    )
+    if not folds:
+        raise ValueError(
+            "historical dataset does not contain enough observations for walk-forward validation"
+        )
+    walk_forward_test = aggregate_test_metrics(folds)
     return HistoricalValidationReport(
         dataset=dataset,
         pattern_rows=pattern_rows,

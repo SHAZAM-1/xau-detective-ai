@@ -65,6 +65,25 @@ def test_validate_historical_csv_builds_oos_and_walk_forward_report(tmp_path: Pa
     assert report.walk_forward_test.observations > 0
 
 
+def test_validate_historical_csv_rejects_insufficient_walk_forward_history(tmp_path: Path):
+    path = tmp_path / "short.csv"
+    _csv(path, count=30)
+
+    with pytest.raises(ValueError, match="enough observations for walk-forward"):
+        validate_historical_csv(
+            path,
+            symbol="XAUUSD",
+            timeframe=Timeframe.H1,
+            source="test",
+            config=HistoricalValidationConfig(
+                walk_forward_train_size=100,
+                walk_forward_test_size=25,
+                walk_forward_step_size=25,
+                horizons=(1,),
+            ),
+        )
+
+
 def test_validate_historical_csv_rejects_too_few_research_rows(tmp_path: Path):
     path = tmp_path / "tiny.csv"
     _csv(path, count=2)
