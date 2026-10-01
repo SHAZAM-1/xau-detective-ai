@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from xau_detective.cross_market import CrossMarketObservation, classify_cross_market_context
 from xau_detective.evidence_engine import build_evidence
 from xau_detective.macro_events import MacroEvent, MacroEventType, classify_macro_event
+from xau_detective.news_regime import NewsCategory, NewsContext, NewsRegime
 from xau_detective.liquidity import LiquiditySnapshot
 from xau_detective.mean_reversion import MeanReversionSignal
 from xau_detective.models import Direction
@@ -154,5 +155,23 @@ def test_macro_context_stays_research_only():
         macro_events=(context,),
     )
     assert "macro:EVENT=CPI" in ledger.research_warnings
+    assert ledger.independent_evidence_count == 3
+    assert not ledger.has_conflict
+
+
+def test_news_regime_stays_research_only():
+    context = NewsContext(
+        NewsRegime.HIGH_IMPACT,
+        (NewsCategory.GEOPOLITICAL,),
+        ("HIGH_IMPACT_NEWS_PRESENT", "CATEGORY=GEOPOLITICAL"),
+    )
+    ledger = build_evidence(
+        Direction.BUY,
+        snapshot(),
+        structure(),
+        momentum=Decimal("0.01"),
+        news_context=context,
+    )
+    assert "news:HIGH_IMPACT_NEWS_PRESENT" in ledger.research_warnings
     assert ledger.independent_evidence_count == 3
     assert not ledger.has_conflict
