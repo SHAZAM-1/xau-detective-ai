@@ -23,13 +23,26 @@ class BacktestMetrics:
     max_drawdown: Decimal
     win_rate: Decimal
     max_loss_streak: int
+    average_r: Decimal | None
+    exposure_bars: int
 
 
 def calculate_backtest_metrics(result: BacktestResult) -> BacktestMetrics:
     """Calculate deterministic summary metrics from a backtest result."""
     trade_count = len(result.trades)
     if trade_count == 0:
-        return BacktestMetrics(
+        risked_trades = [trade for trade in result.trades if trade.risk_amount > 0]
+    average_r = (
+        sum((trade.net_pnl / trade.risk_amount for trade in risked_trades), Decimal(0))
+        / Decimal(len(risked_trades))
+        if risked_trades
+        else None
+    )
+    exposure_bars = sum(
+        max(1, trade.exit_index - trade.entry_index + 1) for trade in result.trades
+    )
+
+    return BacktestMetrics(
             trade_count=0,
             net_pnl=Decimal(0),
             expectancy=Decimal(0),
@@ -37,6 +50,8 @@ def calculate_backtest_metrics(result: BacktestResult) -> BacktestMetrics:
             max_drawdown=Decimal(0),
             win_rate=Decimal(0),
             max_loss_streak=0,
+            average_r=None,
+            exposure_bars=0,
         )
 
     gross_profit = sum(
@@ -66,4 +81,6 @@ def calculate_backtest_metrics(result: BacktestResult) -> BacktestMetrics:
         max_drawdown=result.max_drawdown,
         win_rate=Decimal(result.wins) / Decimal(trade_count),
         max_loss_streak=max_loss_streak,
+        average_r=average_r,
+        exposure_bars=exposure_bars,
     )
