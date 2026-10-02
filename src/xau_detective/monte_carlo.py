@@ -10,6 +10,8 @@ from dataclasses import dataclass
 from decimal import Decimal
 import random
 
+from .backtest import BacktestResult
+
 
 @dataclass(frozen=True)
 class MonteCarloResult:
@@ -156,4 +158,42 @@ def run_monte_carlo(
         ),
         median_r=_percentile(r_averages, Decimal("0.50")) if r_averages else None,
         worst_r=min(r_averages) if r_averages else None,
+    )
+
+
+def run_backtest_monte_carlo(
+    result: BacktestResult,
+    *,
+    simulations: int = 5000,
+    trades_per_simulation: int | None = None,
+    initial_equity: Decimal = Decimal("100"),
+    ruin_threshold: Decimal = Decimal("50"),
+    seed: int = 42,
+) -> MonteCarloResult:
+    """Run Monte Carlo stress testing directly from a closed backtest result.
+
+    The backtest trade list is treated as a fixed research observation set.
+    Net PnL and risk-normalized R are resampled as paired observations; no
+    strategy parameters, signals, or policy definitions are changed.
+    """
+    if not result.trades:
+        raise ValueError("backtest result must contain at least one trade")
+
+    returns = tuple(trade.net_pnl for trade in result.trades)
+    r_multiples = tuple(
+        trade.net_pnl / trade.risk_amount
+        for trade in result.trades
+        if trade.risk_amount > 0
+    )
+    if len(r_multiples) != len(returns):
+        raise ValueError("all backtest trades must have positive risk_amount")
+
+    return run_monte_carlo(
+        returns,
+        simulations=simulations,
+        trades_per_simulation=trades_per_simulation,
+        initial_equity=initial_equity,
+        ruin_threshold=ruin_threshold,
+        seed=seed,
+        trade_r_multiples=r_multiples,
     )
