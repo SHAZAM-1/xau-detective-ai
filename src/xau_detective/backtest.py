@@ -164,13 +164,15 @@ def run_backtest(
                 exit_price,
                 plan.volume,
                 gross,
-                _price_to_pnl(
-                    plan.direction,
-                    entry,
-                    _fill_exit(plan.stop_loss, plan.direction, config),
-                    plan.volume,
-                    config.tick_size,
-                    config.tick_value,
+                abs(
+                    _price_to_pnl(
+                        plan.direction,
+                        entry,
+                        _fill_exit(plan.stop_loss, plan.direction, config),
+                        plan.volume,
+                        config.tick_size,
+                        config.tick_value,
+                    )
                 ),
                 commission,
                 net,
