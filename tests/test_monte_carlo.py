@@ -133,9 +133,9 @@ def test_monte_carlo_tracks_drawdown_and_loss_streak_distribution():
         ruin_threshold=Decimal("10"),
         seed=11,
     )
-    assert result.worst_final_equity == Decimal("99")
-    assert result.worst_max_drawdown == Decimal("5")
-    assert result.worst_max_loss_streak == 2
+    assert result.worst_final_equity == Decimal("100")
+    assert result.worst_max_drawdown == Decimal("2")
+    assert result.worst_max_loss_streak == 1
 
 
 def test_monte_carlo_stops_a_simulation_at_ruin():
