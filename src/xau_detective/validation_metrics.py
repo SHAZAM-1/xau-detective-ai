@@ -1,8 +1,7 @@
 """Deterministic validation metrics derived from backtest results.
 
-Only metrics directly supported by the current backtest result contract are
-computed here. Metrics requiring additional data, such as average R or
-exposure, are intentionally not inferred from incomplete fields.
+Metrics are calculated only from fields explicitly recorded by the backtest.
+Risk-normalized metrics use each trade's modeled stop-loss risk.
 """
 from __future__ import annotations
 
@@ -14,7 +13,7 @@ from .backtest import BacktestResult
 
 @dataclass(frozen=True)
 class BacktestMetrics:
-    """Validation metrics that can be calculated without extra assumptions."""
+    """Deterministic summary metrics derived from a backtest result."""
 
     trade_count: int
     net_pnl: Decimal
@@ -31,18 +30,7 @@ def calculate_backtest_metrics(result: BacktestResult) -> BacktestMetrics:
     """Calculate deterministic summary metrics from a backtest result."""
     trade_count = len(result.trades)
     if trade_count == 0:
-        risked_trades = [trade for trade in result.trades if trade.risk_amount > 0]
-    average_r = (
-        sum((trade.net_pnl / trade.risk_amount for trade in risked_trades), Decimal(0))
-        / Decimal(len(risked_trades))
-        if risked_trades
-        else None
-    )
-    exposure_bars = sum(
-        max(1, trade.exit_index - trade.entry_index + 1) for trade in result.trades
-    )
-
-    return BacktestMetrics(
+        return BacktestMetrics(
             trade_count=0,
             net_pnl=Decimal(0),
             expectancy=Decimal(0),
@@ -53,6 +41,20 @@ def calculate_backtest_metrics(result: BacktestResult) -> BacktestMetrics:
             average_r=None,
             exposure_bars=0,
         )
+
+    risked_trades = [trade for trade in result.trades if trade.risk_amount > 0]
+    average_r = (
+        sum(
+            (trade.net_pnl / trade.risk_amount for trade in risked_trades),
+            Decimal(0),
+        )
+        / Decimal(len(risked_trades))
+        if risked_trades
+        else None
+    )
+    exposure_bars = sum(
+        max(1, trade.exit_index - trade.entry_index + 1) for trade in result.trades
+    )
 
     gross_profit = sum(
         (trade.net_pnl for trade in result.trades if trade.net_pnl > 0),
