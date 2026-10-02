@@ -29,6 +29,25 @@ def test_load_historical_csv_normalizes_timezone_and_volume(tmp_path: Path):
     assert dataset.candles[1].volume == 15
 
 
+def test_load_historical_csv_accepts_datetime_alias(tmp_path: Path):
+    path = tmp_path / "xau.csv"
+    path.write_text(
+        "datetime,open,high,low,close\n"
+        "2026-01-01T00:00:00Z,4300,4310,4290,4305\n",
+        encoding="utf-8",
+    )
+
+    dataset = load_historical_csv(
+        path,
+        symbol="XAUUSD",
+        timeframe=Timeframe.H1,
+        source="test-fixture",
+    )
+
+    assert dataset.quality.usable
+    assert dataset.candles[0].timestamp == datetime(2026, 1, 1, tzinfo=UTC)
+
+
 def test_load_historical_csv_requires_timezone(tmp_path: Path):
     path = tmp_path / "xau.csv"
     path.write_text(

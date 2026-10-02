@@ -79,14 +79,24 @@ def load_historical_csv(
     with Path(path).open("r", encoding="utf-8-sig", newline="") as handle:
         reader = csv.DictReader(handle)
         columns = tuple(reader.fieldnames or ())
-        missing = [column for column in _REQUIRED_COLUMNS if column not in columns]
+        timestamp_column = (
+            "timestamp" if "timestamp" in columns
+            else "datetime" if "datetime" in columns
+            else None
+        )
+        missing = [
+            column for column in _REQUIRED_COLUMNS
+            if column != "timestamp" and column not in columns
+        ]
+        if timestamp_column is None:
+            missing.insert(0, "timestamp")
         if missing:
             raise ValueError(f"missing required columns: {', '.join(missing)}")
 
         for line_number, row in enumerate(reader, start=2):
             if row.get(None):
                 raise ValueError(f"line {line_number}: unexpected extra CSV fields")
-            timestamp = _parse_timestamp(row["timestamp"], line_number=line_number)
+            timestamp = _parse_timestamp(row[timestamp_column], line_number=line_number)
             candles.append(
                 Candle(
                     timestamp=timestamp,
