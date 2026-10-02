@@ -122,3 +122,39 @@ def test_backtest_monte_carlo_rejects_missing_trade_risk():
 
     with pytest.raises(ValueError, match="positive risk_amount"):
         run_backtest_monte_carlo(result)
+
+
+def test_monte_carlo_tracks_drawdown_and_loss_streak_distribution():
+    result = run_monte_carlo(
+        (Decimal("-3"), Decimal("-2"), Decimal("4")),
+        simulations=1,
+        trades_per_simulation=3,
+        initial_equity=Decimal("100"),
+        ruin_threshold=Decimal("10"),
+        seed=11,
+    )
+    assert result.worst_final_equity == Decimal("99")
+    assert result.worst_max_drawdown == Decimal("5")
+    assert result.worst_max_loss_streak == 2
+
+
+def test_monte_carlo_stops_a_simulation_at_ruin():
+    result = run_monte_carlo(
+        (Decimal("-60"), Decimal("100")),
+        simulations=1,
+        trades_per_simulation=5,
+        initial_equity=Decimal("100"),
+        ruin_threshold=Decimal("40"),
+        seed=3,
+    )
+    assert result.ruin_count == 1
+    assert result.ruin_frequency == Decimal("1")
+    assert result.worst_final_equity == Decimal("40")
+
+
+def test_monte_carlo_rejects_mismatched_r_multiples():
+    with pytest.raises(ValueError, match="match trade_returns length"):
+        run_monte_carlo(
+            (Decimal("1"), Decimal("-1")),
+            trade_r_multiples=(Decimal("1"),),
+        )
