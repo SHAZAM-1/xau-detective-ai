@@ -25,6 +25,12 @@ class MonteCarloResult:
     average_max_drawdown: Decimal
     median_max_drawdown: Decimal
     worst_max_drawdown: Decimal
+    average_max_loss_streak: Decimal
+    median_max_loss_streak: Decimal
+    worst_max_loss_streak: int
+    average_r: Decimal | None
+    median_r: Decimal | None
+    worst_r: Decimal | None
 
 
 def _percentile(values: list[Decimal], fraction: Decimal) -> Decimal:
@@ -38,6 +44,18 @@ def _percentile(values: list[Decimal], fraction: Decimal) -> Decimal:
     return ordered[lower] + (ordered[upper] - ordered[lower]) * weight
 
 
+def _max_loss_streak(returns: list[Decimal]) -> int:
+    maximum = 0
+    current = 0
+    for value in returns:
+        if value < 0:
+            current += 1
+            maximum = max(maximum, current)
+        else:
+            current = 0
+    return maximum
+
+
 def run_monte_carlo(
     trade_returns: tuple[Decimal, ...],
     *,
@@ -46,12 +64,19 @@ def run_monte_carlo(
     initial_equity: Decimal = Decimal("100"),
     ruin_threshold: Decimal = Decimal("50"),
     seed: int = 42,
+    trade_r_multiples: tuple[Decimal, ...] | None = None,
 ) -> MonteCarloResult:
-    """Bootstrap observed trade returns with replacement.
+    """Bootstrap observed closed trades with replacement.
 
     trade_returns must use the same unit for every trade, such as account
-    currency or a normalized R multiple. This function does not convert
-    between those units.
+    currency. If trade_r_multiples is supplied, it must contain the
+    risk-normalized R result for each corresponding trade. The paired trade
+    observations are resampled together so the return/R relationship is not
+    broken by independent shuffling.
+
+    Monte Carlo is downstream of the observed trade set: it must not be used
+    to select strategy parameters or turn in-sample performance into an
+    out-of-sample claim.
     """
     if not trade_returns:
         raise ValueError("trade_returns cannot be empty")
@@ -65,20 +90,34 @@ def run_monte_carlo(
         raise ValueError("initial_equity must be positive")
     if ruin_threshold < 0 or ruin_threshold >= initial_equity:
         raise ValueError("ruin_threshold must be >= 0 and below initial_equity")
+    if trade_r_multiples is not None and len(trade_r_multiples) != len(trade_returns):
+        raise ValueError("trade_r_multiples must match trade_returns length")
 
     rng = random.Random(seed)
     finals: list[Decimal] = []
     drawdowns: list[Decimal] = []
+    loss_streaks: list[Decimal] = []
+    r_averages: list[Decimal] = []
     ruins = 0
 
+    observations = tuple(zip(trade_returns, trade_r_multiples or ()))
     for _ in range(simulations):
         equity = initial_equity
         peak = equity
         max_drawdown = Decimal(0)
+        sampled_returns: list[Decimal] = []
+        sampled_r: list[Decimal] = []
         ruined = False
 
         for _ in range(trades_per_simulation):
-            equity += rng.choice(trade_returns)
+            if trade_r_multiples is None:
+                trade_return = rng.choice(trade_returns)
+            else:
+                trade_return, trade_r = rng.choice(observations)
+                sampled_r.append(trade_r)
+
+            sampled_returns.append(trade_return)
+            equity += trade_return
             peak = max(peak, equity)
             max_drawdown = max(max_drawdown, peak - equity)
             if equity <= ruin_threshold:
@@ -87,6 +126,11 @@ def run_monte_carlo(
 
         finals.append(equity)
         drawdowns.append(max_drawdown)
+        loss_streaks.append(Decimal(_max_loss_streak(sampled_returns)))
+        if sampled_r:
+            r_averages.append(
+                sum(sampled_r, Decimal(0)) / Decimal(len(sampled_r))
+            )
         ruins += int(ruined)
 
     return MonteCarloResult(
@@ -102,4 +146,14 @@ def run_monte_carlo(
         average_max_drawdown=sum(drawdowns, Decimal(0)) / Decimal(simulations),
         median_max_drawdown=_percentile(drawdowns, Decimal("0.50")),
         worst_max_drawdown=max(drawdowns),
+        average_max_loss_streak=sum(loss_streaks, Decimal(0)) / Decimal(simulations),
+        median_max_loss_streak=_percentile(loss_streaks, Decimal("0.50")),
+        worst_max_loss_streak=int(max(loss_streaks)),
+        average_r=(
+            sum(r_averages, Decimal(0)) / Decimal(len(r_averages))
+            if r_averages
+            else None
+        ),
+        median_r=_percentile(r_averages, Decimal("0.50")) if r_averages else None,
+        worst_r=min(r_averages) if r_averages else None,
     )
