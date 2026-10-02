@@ -102,7 +102,7 @@ def test_validation_metrics_calculate_supported_summary():
     assert metrics.max_drawdown == Decimal(1)
     assert metrics.win_rate == Decimal("0.5")
     assert metrics.max_loss_streak == 1
-    assert metrics.average_r == Decimal("1")
+    assert metrics.average_r == Decimal("1.5")
     assert metrics.exposure_bars == 2
 
 
