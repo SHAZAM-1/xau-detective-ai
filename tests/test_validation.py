@@ -99,7 +99,7 @@ def _grouped_rows(source_candles: int = 6) -> tuple[PatternDatasetRow, ...]:
 
 def test_walk_forward_keeps_source_candle_groups_atomic_across_all_boundaries():
     rows = _grouped_rows()
-    folds = walk_forward(rows, train_size=5, test_size=4, step_size=4)
+    folds = walk_forward(rows, train_size=8, test_size=4, step_size=4)
 
     assert folds
     for fold in folds:
