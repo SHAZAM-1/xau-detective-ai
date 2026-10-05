@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from decimal import ROUND_DOWN, Decimal
 
-from .models import RiskRequest, RiskResult
+from .models import Direction, RiskRequest, RiskResult
 
 
 def _floor_to_step(value: Decimal, step: Decimal) -> Decimal:
@@ -26,6 +26,12 @@ def calculate_position_size(request: RiskRequest) -> RiskResult:
         return _veto("INVALID_SAFETY_MARGIN")
     if request.entry <= 0 or request.stop_loss <= 0 or request.entry == request.stop_loss:
         return _veto("INVALID_ENTRY_OR_STOP")
+    if request.direction not in (Direction.BUY, Direction.SELL):
+        return _veto("INVALID_DIRECTION")
+    if request.direction is Direction.BUY and request.stop_loss >= request.entry:
+        return _veto("INVALID_STOP_DIRECTION")
+    if request.direction is Direction.SELL and request.stop_loss <= request.entry:
+        return _veto("INVALID_STOP_DIRECTION")
     if b.tick_size <= 0 or b.tick_value <= 0:
         return _veto("MISSING_TICK_SPEC")
     if b.volume_min <= 0 or b.volume_max < b.volume_min:
