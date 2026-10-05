@@ -90,3 +90,4 @@ def test_run_once_uses_newly_closed_m5_candle_as_idempotency_key():
     assert len(service.calls) == 1
     assert service.calls[0]["idempotency_key"] == f"XAUUSD:M5:{closed_m5.isoformat()}"
     assert service.calls[0]["m5"][-1].timestamp + timedelta(minutes=5) <= NOW
+\n\ndef test_run_once_skips_same_closed_m5_candle():\n    source = FakeSource()\n    service = FakeService()\n    closed_m5, first = run_once(\n        source=source,\n        service=service,\n        profile=build_profile(RuntimeConfig()),\n        symbol="XAUUSD",\n        candle_count=50,\n        now=NOW,\n    )\n    closed_again, second = run_once(\n        source=source,\n        service=service,\n        profile=build_profile(RuntimeConfig()),\n        symbol="XAUUSD",\n        candle_count=50,\n        now=NOW,\n        last_closed_m5=closed_m5,\n    )\n    assert first is not None\n    assert closed_again == closed_m5\n    assert second is None\n    assert len(service.calls) == 1\n
