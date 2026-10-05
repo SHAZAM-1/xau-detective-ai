@@ -224,6 +224,11 @@ def walk_forward(
 ) -> tuple[WalkForwardFold, ...]:
     """Run rolling chronological train/test folds with optional label purging.
 
+    ``train_size``, ``test_size`` and ``step_size`` remain observation-row
+    targets, but every resulting boundary is aligned to a complete
+    source-candle group. This preserves the row-count API while making
+    source candles atomic across train/test and fold transitions.
+
     No observation from a fold's test window is available to that fold's
     training labels. The function intentionally does not optimize parameters;
     it only measures stability across time.
@@ -278,7 +283,12 @@ def walk_forward(
             )
             fold_number += 1
 
-        start += step
+        next_start = _next_boundary_index(ordered, min(start + step, len(ordered)))
+        if next_start <= start:
+            next_start = _next_boundary_index(ordered, start + 1)
+        if next_start <= start:
+            break
+        start = next_start
 
     return tuple(folds)
 
