@@ -102,6 +102,33 @@ def _boundary_index(
     return target
 
 
+def _next_boundary_index(
+    rows: tuple[PatternDatasetRow, ...],
+    target: int,
+) -> int:
+    """Move an exclusive row-count target forward to a complete source-candle boundary."""
+    if target <= 0:
+        return 0
+    if target >= len(rows):
+        return len(rows)
+
+    boundary_timestamp = rows[target - 1].timestamp
+    boundary_timeframe = rows[target - 1].timeframe
+    boundary_source_index = rows[target - 1].index
+
+    while target < len(rows):
+        current = rows[target]
+        if (
+            current.timestamp != boundary_timestamp
+            or current.timeframe != boundary_timeframe
+            or current.index != boundary_source_index
+        ):
+            break
+        target += 1
+
+    return target
+
+
 def _purge_training_rows(
     rows: tuple[PatternDatasetRow, ...],
     *,
@@ -197,6 +224,11 @@ def walk_forward(
 ) -> tuple[WalkForwardFold, ...]:
     """Run rolling chronological train/test folds with optional label purging.
 
+    ``train_size``, ``test_size`` and ``step_size`` remain observation-row
+    targets, but every resulting boundary is aligned to a complete
+    source-candle group. This preserves the row-count API while making
+    source candles atomic across train/test and fold transitions.
+
     No observation from a fold's test window is available to that fold's
     training labels. The function intentionally does not optimize parameters;
     it only measures stability across time.
@@ -222,7 +254,7 @@ def walk_forward(
         if test_start <= start or test_start >= len(ordered):
             break
 
-        test_end = min(test_start + test_size, len(ordered))
+        test_end = _next_boundary_index(ordered, min(test_start + test_size, len(ordered)))
         train = ordered[start:test_start]
         test = ordered[test_start:test_end]
         if not test:
@@ -251,7 +283,12 @@ def walk_forward(
             )
             fold_number += 1
 
-        start += step
+        next_start = _next_boundary_index(ordered, min(start + step, len(ordered)))
+        if next_start <= start:
+            next_start = _next_boundary_index(ordered, start + 1)
+        if next_start <= start:
+            break
+        start = next_start
 
     return tuple(folds)
 

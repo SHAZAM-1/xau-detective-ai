@@ -121,3 +121,43 @@ def test_validation_metrics_handle_empty_results_without_inference():
     assert metrics.max_loss_streak == 0
     assert metrics.average_r is None
     assert metrics.exposure_bars == 0
+
+
+def test_invalid_buy_geometry_is_rejected_before_simulation():
+    candles = (
+        candle(0, 100, 101, 99, 100),
+        candle(1, 100, 104, 99, 102),
+    )
+
+    def signal(index, _history):
+        if index == 0:
+            return TradePlan(Direction.BUY, Decimal("101"), Decimal("110"), Decimal(1))
+        return None
+
+    result = run_backtest(
+        candles,
+        signal,
+        BacktestConfig(tick_size=Decimal(1), tick_value=Decimal(1)),
+    )
+    assert result.trades == ()
+
+
+def test_invalid_sell_geometry_is_rejected_before_simulation():
+    candles = (
+        candle(0, 100, 101, 99, 100),
+        candle(1, 100, 104, 99, 102),
+    )
+
+    def signal(index, _history):
+        if index == 0:
+            return TradePlan(Direction.SELL, Decimal("90"), Decimal("95"), Decimal(1))
+        return None
+
+    result = run_backtest(
+        candles,
+        signal,
+        BacktestConfig(tick_size=Decimal(1), tick_value=Decimal(1)),
+    )
+    assert result.trades == ()
+
+

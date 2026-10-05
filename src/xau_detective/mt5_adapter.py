@@ -84,10 +84,12 @@ def account_capabilities_from_mt5(
     symbol_available: bool = True,
     mt5_module: Any | None = None,
 ) -> AccountCapabilities:
-    """Map MT5 account state; omit environment for automatic detection."""
-    detected = environment if environment is not None else detect_environment_from_mt5(
-        account_info, mt5_module=mt5_module
-    )
+    """Map MT5 account state; the actual account mode is authoritative."""
+    detected = detect_environment_from_mt5(account_info, mt5_module=mt5_module)
+    if environment is not None and environment is not detected:
+        raise ValueError(
+            f"MT5_ENVIRONMENT_OVERRIDE_MISMATCH:{environment.value}:{detected.value}"
+        )
     return AccountCapabilities(
         environment=detected,
         connected=connected,
