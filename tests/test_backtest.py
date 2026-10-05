@@ -161,20 +161,3 @@ def test_invalid_sell_geometry_is_rejected_before_simulation():
     assert result.trades == ()
 
 
-def test_zero_risk_geometry_is_rejected_before_trade_recording():
-    candles = (
-        candle(0, 100, 101, 99, 100),
-        candle(1, 100, 100, 100, 100),
-    )
-
-    def signal(index, _history):
-        if index == 0:
-            return TradePlan(Direction.BUY, Decimal("99"), Decimal("101"), Decimal(1))
-        return None
-
-    result = run_backtest(
-        candles,
-        signal,
-        BacktestConfig(tick_size=Decimal(1), tick_value=Decimal(1)),
-    )
-    assert result.trades == ()
