@@ -110,8 +110,8 @@ def test_validate_historical_csv_can_backtest_only_oos_with_existing_engine(tmp_
         close = candles[-1].close
         return TradePlan(
             Direction.BUY,
-            close - Decimal("1"),
-            close + Decimal("2"),
+            close - Decimal("10"),
+            close + Decimal("10"),
             Decimal("1"),
         )
 
