@@ -354,6 +354,9 @@ class MT5DemoTradingService:
         if tick is None:
             return self._finish(trace_id=idempotency_key, now=now, result=DemoCycleResult(False, None, None, "MT5_TICK_UNAVAILABLE"))
 
+        terminal_trade_allowed = bool(
+            getattr(terminal_info, "trade_allowed", False)
+        )
         state = self._session.refresh(
             account_info,
             connected=connected,
@@ -362,6 +365,7 @@ class MT5DemoTradingService:
             symbol=self._symbol,
             symbol_available=symbol_available,
             mt5_module=self._mt5,
+            terminal_trade_allowed=terminal_trade_allowed,
         )
         changed = session_before != state.identity
 
