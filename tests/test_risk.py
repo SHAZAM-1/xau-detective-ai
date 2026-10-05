@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from xau_detective.models import (
     AccountSnapshot,
+    Direction,
     BrokerSpec,
     DailyRiskState,
     ExecutionSnapshot,
@@ -30,6 +31,7 @@ def request(**kwargs):
         Decimal(4000),
         Decimal("3999.90"),
         Decimal("0.01"),
+        direction=Direction.BUY,
         **kwargs,
     )
 
@@ -42,6 +44,7 @@ def test_infeasible_minimum_lot_is_no_trade():
             Decimal(4000),
             Decimal(3990),
             Decimal("0.01"),
+            direction=Direction.BUY,
         )
     )
     assert not result.executable
@@ -140,3 +143,31 @@ def test_invalid_safety_margin_is_no_trade():
     result = calculate_position_size(request(safety_margin=Decimal("1.01")))
     assert not result.executable
     assert result.reason == "INVALID_SAFETY_MARGIN"
+
+
+def test_invalid_buy_stop_direction_is_no_trade():
+    result = calculate_position_size(request(stop_loss=Decimal("4000.10")))
+    assert not result.executable
+    assert result.reason == "INVALID_STOP_DIRECTION"
+
+
+def test_invalid_sell_stop_direction_is_no_trade():
+    result = calculate_position_size(
+        request(direction=Direction.SELL, stop_loss=Decimal("3999.90"))
+    )
+    assert not result.executable
+    assert result.reason == "INVALID_STOP_DIRECTION"
+
+
+def test_missing_direction_is_no_trade():
+    result = calculate_position_size(
+        RiskRequest(
+            AccountSnapshot(Decimal(1000), Decimal(1000), Decimal(1000)),
+            broker(),
+            Decimal(4000),
+            Decimal("3999.90"),
+            Decimal("0.01"),
+        )
+    )
+    assert not result.executable
+    assert result.reason == "INVALID_DIRECTION"
