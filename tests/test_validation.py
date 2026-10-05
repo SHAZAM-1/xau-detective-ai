@@ -117,13 +117,16 @@ def test_walk_forward_keeps_source_candle_groups_atomic_across_all_boundaries():
         assert current.test_start_index > previous.test_end_index
 
     for fold in folds:
-        source_at = lambda position: (
-            rows[position].timestamp,
-            rows[position].timeframe,
-            rows[position].index,
-        )
         if fold.train_start_index > 0:
-            assert source_at(fold.train_start_index) != source_at(fold.train_start_index - 1)
+            assert (
+                rows[fold.train_start_index].timestamp,
+                rows[fold.train_start_index].timeframe,
+                rows[fold.train_start_index].index,
+            ) != (
+                rows[fold.train_start_index - 1].timestamp,
+                rows[fold.train_start_index - 1].timeframe,
+                rows[fold.train_start_index - 1].index,
+            )
         assert fold.train_end_index + 1 in {
             fold.test_start_index,
             len(rows),
