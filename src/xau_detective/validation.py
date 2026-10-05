@@ -261,7 +261,12 @@ def walk_forward(
             break
 
         if folds and test_start <= folds[-1].test_end_index:
-            start += step
+            next_start = _next_boundary_index(ordered, min(start + step, len(ordered)))
+            if next_start <= start:
+                next_start = _next_boundary_index(ordered, start + 1)
+            if next_start <= start:
+                break
+            start = next_start
             continue
 
         train = _purge_training_rows(
