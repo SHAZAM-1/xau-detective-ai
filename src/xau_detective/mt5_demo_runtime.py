@@ -88,7 +88,7 @@ def run_once(
     data = fetch_closed_snapshot(source, symbol=symbol, count=candle_count, now=timestamp)
     m5 = data[Timeframe.M5]
     closed_m5 = m5[-1].timestamp
-    key = f"XAUUSD:M5:{closed_m5.isoformat()}"
+    key = f"{symbol}:M5:{closed_m5.isoformat()}"
     result = service.cycle(
         profile=profile,
         d1=data[Timeframe.D1],
