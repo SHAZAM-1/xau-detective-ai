@@ -65,17 +65,37 @@ def test_account_capabilities_rejects_unknown_trade_mode():
         )
 
 
-def test_account_capabilities_allows_explicit_override_for_tests():
+def test_account_capabilities_allows_matching_environment_assertion():
     account = SimpleNamespace(trade_mode=0, trade_allowed=True)
     capabilities = account_capabilities_from_mt5(
         account,
         connected=True,
         connection_healthy=True,
-        environment=TradingEnvironment.LIVE,
+        environment=TradingEnvironment.DEMO,
     )
-    assert capabilities.environment is TradingEnvironment.LIVE
+    assert capabilities.environment is TradingEnvironment.DEMO
 
 
+def test_account_capabilities_rejects_live_account_spoofed_as_demo():
+    account = SimpleNamespace(trade_mode=2, trade_allowed=True)
+    with pytest.raises(ValueError, match="MT5_ENVIRONMENT_OVERRIDE_MISMATCH:DEMO:LIVE"):
+        account_capabilities_from_mt5(
+            account,
+            connected=True,
+            connection_healthy=True,
+            environment=TradingEnvironment.DEMO,
+        )
+
+
+def test_account_capabilities_rejects_demo_account_spoofed_as_live():
+    account = SimpleNamespace(trade_mode=0, trade_allowed=True)
+    with pytest.raises(ValueError, match="MT5_ENVIRONMENT_OVERRIDE_MISMATCH:LIVE:DEMO"):
+        account_capabilities_from_mt5(
+            account,
+            connected=True,
+            connection_healthy=True,
+            environment=TradingEnvironment.LIVE,
+        )
 def test_candle_from_mt5_normalizes_aware_datetime_to_utc():
     timestamp = datetime(2026, 9, 27, 18, 0, tzinfo=UTC)
     candle = candle_from_mt5(

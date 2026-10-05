@@ -9,6 +9,8 @@
 5. Paper/demo trading
 6. Controlled live execution validation
 
+Historical OOS validation must use the existing `run_backtest()` engine and produce a `BacktestResult`. Monte Carlo consumes only the closed result; it is not a signal generator or strategy-tuning engine.
+
 ## Backtest realism
 
 Include where data permits:
@@ -19,6 +21,8 @@ Include where data permits:
 - session effects,
 - news periods,
 - broker constraints.
+
+When broker symbol specifications are available, backtests should supply the shared broker-constraint contract so volume and directional stop/target distance rules match the execution boundary. A backtest without broker metadata is generic research and must not be presented as proof that an order is executable on a specific broker.
 
 ## Bias controls
 
@@ -37,6 +41,9 @@ Track:
 - number of independent trades,
 - stability across periods,
 - stability across market regimes.
+
+### Temporal boundary integrity
+Chronological and walk-forward folds must start and end on source-candle boundaries when multiple observations belong to the same source candle. Labels whose forward horizon reaches into the test window must be purged from training.
 
 ## Required metrics
 
@@ -57,4 +64,4 @@ Win rate alone is insufficient.
 
 No strategy component becomes a live dependency merely because it improves in-sample profit.
 
-It must demonstrate robustness outside the training period.
+It must demonstrate robustness outside the training period and remain compatible with the execution/risk gates.
