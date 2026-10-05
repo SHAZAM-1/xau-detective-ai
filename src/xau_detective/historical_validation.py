@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
 
+from .backtest import BacktestConfig, BacktestResult, SignalFunction, run_backtest
 from .historical_data import HistoricalDataset, load_historical_csv
 from .pattern_study import PatternDatasetRow, build_pattern_dataset
 from .timeframes import Timeframe
@@ -39,6 +40,7 @@ class HistoricalValidationReport:
     out_of_sample: OutOfSampleResult
     walk_forward_folds: tuple[WalkForwardFold, ...]
     walk_forward_test: ValidationMetrics
+    out_of_sample_backtest: BacktestResult | None
 
 
 def validate_historical_csv(
@@ -49,6 +51,8 @@ def validate_historical_csv(
     source: str,
     config: HistoricalValidationConfig = HistoricalValidationConfig(),
     strict_interval: bool = True,
+    backtest_signal: SignalFunction | None = None,
+    backtest_config: BacktestConfig | None = None,
 ) -> HistoricalValidationReport:
     """Run descriptive historical validation only when source quality is usable."""
     if not config.horizons or any(horizon <= 0 for horizon in config.horizons):
@@ -94,10 +98,36 @@ def validate_historical_csv(
             "historical dataset does not contain enough observations for walk-forward validation"
         )
     walk_forward_test = aggregate_test_metrics(folds)
+
+    if (backtest_signal is None) != (backtest_config is None):
+        raise ValueError("backtest_signal and backtest_config must be supplied together")
+
+    out_of_sample_backtest = None
+    if backtest_signal is not None and backtest_config is not None:
+        ordered_rows = sorted(
+            pattern_rows,
+            key=lambda row: (row.timestamp, row.timeframe, row.pattern, row.index, row.horizon),
+        )
+        oos_source_index = ordered_rows[out_of_sample.test_start_index].index
+
+        def oos_signal(index: int, context: tuple) -> object | None:
+            if index < oos_source_index:
+                return None
+            return backtest_signal(index, context)
+
+        # Preserve full candle context while hard-gating execution to the OOS
+        # source-candle boundary. The callback receives only past/current candles.
+        out_of_sample_backtest = run_backtest(
+            dataset.candles,
+            oos_signal,
+            backtest_config,
+        )
+
     return HistoricalValidationReport(
         dataset=dataset,
         pattern_rows=pattern_rows,
         out_of_sample=out_of_sample,
         walk_forward_folds=folds,
         walk_forward_test=walk_forward_test,
+        out_of_sample_backtest=out_of_sample_backtest,
     )
