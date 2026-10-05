@@ -144,3 +144,15 @@ def test_walk_forward_keeps_source_candle_groups_atomic_across_all_boundaries():
                 len(rows),
             ),
         }
+
+
+def test_walk_forward_skipped_overlap_still_starts_on_source_candle_boundary():
+    rows = _grouped_rows()
+    folds = walk_forward(rows, train_size=8, test_size=10, step_size=4)
+
+    assert folds
+    for fold in folds:
+        assert (
+            fold.train_start_index == 0
+            or rows[fold.train_start_index].index != rows[fold.train_start_index - 1].index
+        )
