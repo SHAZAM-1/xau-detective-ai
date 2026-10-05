@@ -2,9 +2,9 @@ from decimal import Decimal
 
 from xau_detective.models import (
     AccountSnapshot,
-    Direction,
     BrokerSpec,
     DailyRiskState,
+    Direction,
     ExecutionSnapshot,
     RiskRequest,
 )
@@ -66,6 +66,7 @@ def test_position_size_uses_equity_not_balance():
             Decimal(4000),
             Decimal("3999.90"),
             Decimal("0.01"),
+            direction=Direction.BUY,
         )
     )
     assert result.executable
@@ -125,6 +126,7 @@ def test_daily_loss_gate_includes_projected_trade_loss():
             Decimal(4000),
             Decimal("3999.90"),
             Decimal("0.01"),
+            direction=Direction.BUY,
             daily_risk=DailyRiskState(Decimal(-8)),
             max_daily_loss_fraction=Decimal("0.01"),
         )
