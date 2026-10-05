@@ -11,6 +11,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from decimal import Decimal
 
+from .broker_execution_gate import BrokerSymbolConstraints, validate_broker_trade
 from .market import Candle
 from .models import Direction
 
@@ -30,6 +31,7 @@ class BacktestConfig:
     spread: Decimal = Decimal(0)
     slippage: Decimal = Decimal(0)
     commission_per_lot_per_side: Decimal = Decimal(0)
+    broker_constraints: BrokerSymbolConstraints | None = None
 
 
 @dataclass(frozen=True)
@@ -89,6 +91,33 @@ def _fill_exit(price: Decimal, direction: Direction, config: BacktestConfig) -> 
     return price + half_spread + config.slippage
 
 
+def _valid_trade_plan(plan: TradePlan, entry: Decimal) -> bool:
+    if plan.direction not in (Direction.BUY, Direction.SELL):
+        return False
+    if plan.volume <= 0 or entry <= 0 or plan.stop_loss <= 0 or plan.take_profit <= 0:
+        return False
+    if plan.direction is Direction.BUY:
+        return plan.stop_loss < entry < plan.take_profit
+    return plan.take_profit < entry < plan.stop_loss
+
+
+def _broker_constraint_reason(
+    plan: TradePlan,
+    entry: Decimal,
+    config: BacktestConfig,
+) -> str | None:
+    if config.broker_constraints is None:
+        return None
+    return validate_broker_trade(
+        direction=plan.direction,
+        entry=entry,
+        stop_loss=plan.stop_loss,
+        take_profit=plan.take_profit,
+        volume=plan.volume,
+        constraints=config.broker_constraints,
+    )
+
+
 def run_backtest(
     candles: tuple[Candle, ...],
     signal: SignalFunction,
@@ -106,15 +135,14 @@ def run_backtest(
         if plan is None or plan.direction is Direction.NO_TRADE:
             i += 1
             continue
-        if plan.direction not in (Direction.BUY, Direction.SELL) or plan.volume <= 0:
-            i += 1
-            continue
-        if plan.stop_loss <= 0 or plan.take_profit <= 0:
-            i += 1
-            continue
-
         entry_index = i + 1
         entry = _fill_entry(candles[entry_index].open, plan.direction, config)
+        if not _valid_trade_plan(plan, entry):
+            i += 1
+            continue
+        if _broker_constraint_reason(plan, entry, config) is not None:
+            i += 1
+            continue
         exit_index = None
         raw_exit = None
         reason = None
@@ -141,6 +169,20 @@ def run_backtest(
             reason = "END_OF_DATA"
 
         exit_price = _fill_exit(raw_exit, plan.direction, config)
+        risk_amount = abs(
+            _price_to_pnl(
+                plan.direction,
+                entry,
+                _fill_exit(plan.stop_loss, plan.direction, config),
+                plan.volume,
+                config.tick_size,
+                config.tick_value,
+            )
+        )
+        if risk_amount <= 0:
+            i = exit_index + 1
+            continue
+
         gross = _price_to_pnl(
             plan.direction,
             entry,

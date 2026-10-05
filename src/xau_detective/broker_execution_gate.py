@@ -16,6 +16,64 @@ class ExecutionGateResult:
     reason: str
 
 
+@dataclass(frozen=True)
+class BrokerSymbolConstraints:
+    """Pure broker symbol limits shared by live execution and backtesting."""
+
+    point: Decimal
+    volume_min: Decimal
+    volume_max: Decimal
+    volume_step: Decimal
+    trade_stops_level: Decimal = Decimal(0)
+    trade_freeze_level: Decimal = Decimal(0)
+
+    @property
+    def minimum_stop_distance(self) -> Decimal:
+        return max(self.trade_stops_level, self.trade_freeze_level) * self.point
+
+
+def validate_broker_trade(
+    *,
+    direction: Direction,
+    entry: Decimal,
+    stop_loss: Decimal,
+    take_profit: Decimal,
+    volume: Decimal,
+    constraints: BrokerSymbolConstraints,
+) -> str | None:
+    """Return a broker-constraint rejection reason, or None when valid."""
+    if (
+        constraints.point <= 0
+        or constraints.volume_min <= 0
+        or constraints.volume_max < constraints.volume_min
+        or constraints.volume_step <= 0
+        or constraints.trade_stops_level < 0
+        or constraints.trade_freeze_level < 0
+    ):
+        return "INVALID_BROKER_SYMBOL_SPEC"
+
+    if volume < constraints.volume_min:
+        return "VOLUME_BELOW_BROKER_MIN"
+    if volume > constraints.volume_max:
+        return "VOLUME_ABOVE_BROKER_MAX"
+    if (volume - constraints.volume_min) % constraints.volume_step != 0:
+        return "VOLUME_NOT_ALIGNED_TO_STEP"
+
+    min_distance = constraints.minimum_stop_distance
+    if direction is Direction.BUY:
+        if entry - stop_loss < min_distance:
+            return "BUY_STOP_TOO_CLOSE"
+        if take_profit - entry < min_distance:
+            return "BUY_TP_TOO_CLOSE"
+    elif direction is Direction.SELL:
+        if stop_loss - entry < min_distance:
+            return "SELL_STOP_TOO_CLOSE"
+        if entry - take_profit < min_distance:
+            return "SELL_TP_TOO_CLOSE"
+
+    return None
+
+
 class BrokerExecutionGate:
     """Validate broker/account/order invariants before reaching order_send."""
 
@@ -56,18 +114,28 @@ class BrokerExecutionGate:
         if order_mode is not None and not (int(order_mode) & int(market_flag)):
             return ExecutionGateResult(False, "MARKET_ORDERS_NOT_ALLOWED")
 
-        volume = intent.volume
-        volume_min = Decimal(str(getattr(symbol_info, "volume_min", "0")))
-        volume_max = Decimal(str(getattr(symbol_info, "volume_max", "0")))
-        volume_step = Decimal(str(getattr(symbol_info, "volume_step", "0")))
-        if volume <= 0 or volume_min <= 0 or volume_step <= 0:
-            return ExecutionGateResult(False, "INVALID_BROKER_VOLUME_SPEC")
-        if volume < volume_min:
-            return ExecutionGateResult(False, "VOLUME_BELOW_BROKER_MIN")
-        if volume > volume_max:
-            return ExecutionGateResult(False, "VOLUME_ABOVE_BROKER_MAX")
-        if (volume - volume_min) % volume_step != 0:
-            return ExecutionGateResult(False, "VOLUME_NOT_ALIGNED_TO_STEP")
+        constraints = BrokerSymbolConstraints(
+            point=Decimal(str(getattr(symbol_info, "point", "0"))),
+            volume_min=Decimal(str(getattr(symbol_info, "volume_min", "0"))),
+            volume_max=Decimal(str(getattr(symbol_info, "volume_max", "0"))),
+            volume_step=Decimal(str(getattr(symbol_info, "volume_step", "0"))),
+            trade_stops_level=Decimal(
+                str(getattr(symbol_info, "trade_stops_level", "0"))
+            ),
+            trade_freeze_level=Decimal(
+                str(getattr(symbol_info, "trade_freeze_level", "0"))
+            ),
+        )
+        volume_spec_reason = validate_broker_trade(
+            direction=intent.direction,
+            entry=intent.entry,
+            stop_loss=intent.stop_loss,
+            take_profit=intent.take_profit,
+            volume=intent.volume,
+            constraints=constraints,
+        )
+        if volume_spec_reason == "INVALID_BROKER_SYMBOL_SPEC":
+            return ExecutionGateResult(False, volume_spec_reason)
 
         bid = Decimal(str(getattr(symbol_info, "bid", "0")))
         ask = Decimal(str(getattr(symbol_info, "ask", "0")))
@@ -81,10 +149,7 @@ class BrokerExecutionGate:
             return ExecutionGateResult(False, "SLIPPAGE_LIMIT_EXCEEDED")
 
         expected_entry = ask if intent.direction is Direction.BUY else bid
-        point = Decimal(str(getattr(symbol_info, "point", "0")))
-        if point <= 0:
-            return ExecutionGateResult(False, "INVALID_SYMBOL_POINT")
-        price_tolerance = point * Decimal("2")
+        price_tolerance = constraints.point * Decimal("2")
         if abs(intent.entry - expected_entry) > price_tolerance:
             return ExecutionGateResult(False, "STALE_OR_WRONG_SIDE_ENTRY")
 
@@ -95,20 +160,8 @@ class BrokerExecutionGate:
             if not (intent.take_profit < intent.entry < intent.stop_loss):
                 return ExecutionGateResult(False, "INVALID_SELL_SL_TP")
 
-        stops_level = Decimal(str(getattr(symbol_info, "trade_stops_level", "0")))
-        freeze_level = Decimal(str(getattr(symbol_info, "trade_freeze_level", "0")))
-        min_distance = max(stops_level, freeze_level) * point
-
-        if intent.direction is Direction.BUY:
-            if intent.entry - intent.stop_loss < min_distance:
-                return ExecutionGateResult(False, "BUY_STOP_TOO_CLOSE")
-            if intent.take_profit - intent.entry < min_distance:
-                return ExecutionGateResult(False, "BUY_TP_TOO_CLOSE")
-        else:
-            if intent.stop_loss - intent.entry < min_distance:
-                return ExecutionGateResult(False, "SELL_STOP_TOO_CLOSE")
-            if intent.entry - intent.take_profit < min_distance:
-                return ExecutionGateResult(False, "SELL_TP_TOO_CLOSE")
+        if volume_spec_reason is not None:
+            return ExecutionGateResult(False, volume_spec_reason)
 
         free_margin = Decimal(str(getattr(account_info, "margin_free", "0")))
         if free_margin <= 0:
