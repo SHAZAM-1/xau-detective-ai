@@ -107,8 +107,6 @@ def test_validate_historical_csv_can_backtest_only_oos_with_existing_engine(tmp_
 
     def signal(index, candles):
         seen.append(index)
-        if index < 100:
-            return None
         close = candles[-1].close
         return TradePlan(
             Direction.BUY,
@@ -137,4 +135,6 @@ def test_validate_historical_csv_can_backtest_only_oos_with_existing_engine(tmp_
 
     assert report.out_of_sample_backtest is not None
     assert report.out_of_sample_backtest.trades
-    assert all(trade.signal_index >= 100 for trade in report.out_of_sample_backtest.trades)
+    assert seen
+    assert min(trade.signal_index for trade in report.out_of_sample_backtest.trades) == min(seen)
+    assert min(seen) > 0
