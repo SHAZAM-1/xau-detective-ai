@@ -2,6 +2,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 from xau_detective.backtest import BacktestConfig, TradePlan, run_backtest
+from xau_detective.broker_execution_gate import BrokerSymbolConstraints
 from xau_detective.market import Candle
 from xau_detective.models import Direction
 
@@ -161,3 +162,170 @@ def test_invalid_sell_geometry_is_rejected_before_simulation():
     assert result.trades == ()
 
 
+def broker_constraints():
+    return BrokerSymbolConstraints(
+        point=Decimal("0.1"),
+        volume_min=Decimal("0.1"),
+        volume_max=Decimal("1.0"),
+        volume_step=Decimal("0.1"),
+        trade_stops_level=Decimal("10"),
+        trade_freeze_level=Decimal("0"),
+    )
+
+
+def test_backtest_accepts_plan_meeting_broker_constraints():
+    candles = (
+        candle(0, 4000, 4001, 3999, 4000),
+        candle(1, 4000, 4003, 3998, 4001),
+    )
+
+    def signal(index, _history):
+        if index == 0:
+            return TradePlan(
+                Direction.BUY, Decimal("3998.5"), Decimal("4002"), Decimal("0.1")
+            )
+        return None
+
+    result = run_backtest(
+        candles,
+        signal,
+        BacktestConfig(
+            tick_size=Decimal("0.1"),
+            tick_value=Decimal("1"),
+            broker_constraints=broker_constraints(),
+        ),
+    )
+    assert len(result.trades) == 1
+
+
+def test_backtest_rejects_volume_below_minimum():
+    candles = (
+        candle(0, 4000, 4001, 3999, 4000),
+        candle(1, 4000, 4003, 3998, 4001),
+    )
+
+    def signal(index, _history):
+        if index == 0:
+            return TradePlan(
+                Direction.BUY, Decimal("3998.5"), Decimal("4002"), Decimal("0.01")
+            )
+        return None
+
+    result = run_backtest(
+        candles,
+        signal,
+        BacktestConfig(
+            tick_size=Decimal("0.1"),
+            tick_value=Decimal("1"),
+            broker_constraints=broker_constraints(),
+        ),
+    )
+    assert result.trades == ()
+
+
+def test_backtest_rejects_volume_above_maximum():
+    candles = (
+        candle(0, 4000, 4001, 3999, 4000),
+        candle(1, 4000, 4003, 3998, 4001),
+    )
+
+    def signal(index, _history):
+        if index == 0:
+            return TradePlan(
+                Direction.BUY, Decimal("3998.5"), Decimal("4002"), Decimal("1.1")
+            )
+        return None
+
+    result = run_backtest(
+        candles,
+        signal,
+        BacktestConfig(
+            tick_size=Decimal("0.1"),
+            tick_value=Decimal("1"),
+            broker_constraints=broker_constraints(),
+        ),
+    )
+    assert result.trades == ()
+
+
+def test_backtest_rejects_volume_not_aligned_to_step():
+    candles = (
+        candle(0, 4000, 4001, 3999, 4000),
+        candle(1, 4000, 4003, 3998, 4001),
+    )
+
+    def signal(index, _history):
+        if index == 0:
+            return TradePlan(
+                Direction.BUY, Decimal("3998.5"), Decimal("4002"), Decimal("0.2")
+            )
+        return None
+
+    constraints = BrokerSymbolConstraints(
+        point=Decimal("0.1"),
+        volume_min=Decimal("0.1"),
+        volume_max=Decimal("1.0"),
+        volume_step=Decimal("0.3"),
+        trade_stops_level=Decimal("10"),
+        trade_freeze_level=Decimal("0"),
+    )
+    result = run_backtest(
+        candles,
+        signal,
+        BacktestConfig(
+            tick_size=Decimal("0.1"),
+            tick_value=Decimal("1"),
+            broker_constraints=constraints,
+        ),
+    )
+    assert result.trades == ()
+
+
+def test_backtest_rejects_buy_stop_too_close():
+    candles = (
+        candle(0, 4000, 4001, 3999, 4000),
+        candle(1, 4000, 4003, 3998, 4001),
+    )
+
+    def signal(index, _history):
+        if index == 0:
+            return TradePlan(
+                Direction.BUY, Decimal("3999.2"), Decimal("4002"), Decimal("0.1")
+            )
+        return None
+
+    result = run_backtest(
+        candles,
+        signal,
+        BacktestConfig(
+            tick_size=Decimal("0.1"),
+            tick_value=Decimal("1"),
+            broker_constraints=broker_constraints(),
+        ),
+    )
+    assert result.trades == ()
+
+
+def test_backtest_rejects_sell_tp_too_close():
+    candles = (
+        candle(0, 4000, 4001, 3999, 4000),
+        candle(1, 4000, 4002, 3998, 3999),
+    )
+
+    def signal(index, _history):
+        if index == 0:
+            return TradePlan(
+                Direction.SELL, Decimal("4002"), Decimal("3999.2"), Decimal("0.1")
+            )
+        return None
+
+    result = run_backtest(
+        candles,
+        signal,
+        BacktestConfig(
+            tick_size=Decimal("0.1"),
+            tick_value=Decimal("1"),
+            broker_constraints=broker_constraints(),
+        ),
+    )
+    assert result.trades == ()
