@@ -175,3 +175,11 @@ def test_missing_direction_is_no_trade():
     )
     assert not result.executable
     assert result.reason == "INVALID_DIRECTION"
+
+
+def test_valid_sell_stop_direction_is_executable():
+    result = calculate_position_size(
+        request(direction=Direction.SELL, stop_loss=Decimal("4000.10"))
+    )
+    assert result.executable
+    assert result.volume == Decimal("0.90")
