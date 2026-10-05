@@ -25,13 +25,15 @@ def broker():
 
 
 def request(**kwargs):
+    stop_loss = kwargs.pop("stop_loss", Decimal("3999.90"))
+    direction = kwargs.pop("direction", Direction.BUY)
     return RiskRequest(
         AccountSnapshot(Decimal(1000), Decimal(1000), Decimal(1000)),
         broker(),
         Decimal(4000),
-        Decimal("3999.90"),
+        stop_loss,
         Decimal("0.01"),
-        direction=Direction.BUY,
+        direction=direction,
         **kwargs,
     )
 
