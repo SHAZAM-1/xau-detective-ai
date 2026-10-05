@@ -11,6 +11,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from decimal import Decimal
 
+from .broker_execution_gate import BrokerSymbolConstraints, validate_broker_trade
 from .market import Candle
 from .models import Direction
 
@@ -30,6 +31,7 @@ class BacktestConfig:
     spread: Decimal = Decimal(0)
     slippage: Decimal = Decimal(0)
     commission_per_lot_per_side: Decimal = Decimal(0)
+    broker_constraints: BrokerSymbolConstraints | None = None
 
 
 @dataclass(frozen=True)
@@ -99,6 +101,23 @@ def _valid_trade_plan(plan: TradePlan, entry: Decimal) -> bool:
     return plan.take_profit < entry < plan.stop_loss
 
 
+def _broker_constraint_reason(
+    plan: TradePlan,
+    entry: Decimal,
+    config: BacktestConfig,
+) -> str | None:
+    if config.broker_constraints is None:
+        return None
+    return validate_broker_trade(
+        direction=plan.direction,
+        entry=entry,
+        stop_loss=plan.stop_loss,
+        take_profit=plan.take_profit,
+        volume=plan.volume,
+        constraints=config.broker_constraints,
+    )
+
+
 def run_backtest(
     candles: tuple[Candle, ...],
     signal: SignalFunction,
@@ -119,6 +138,9 @@ def run_backtest(
         entry_index = i + 1
         entry = _fill_entry(candles[entry_index].open, plan.direction, config)
         if not _valid_trade_plan(plan, entry):
+            i += 1
+            continue
+        if _broker_constraint_reason(plan, entry, config) is not None:
             i += 1
             continue
         exit_index = None
