@@ -1,5 +1,7 @@
 from types import SimpleNamespace
 
+import pytest
+
 from xau_detective.environment import (
     AccountCapabilities,
     TradingEnvironment,
@@ -54,19 +56,12 @@ def test_live_execution_is_locked_in_v1():
     assert environment_reason(caps) == "LIVE_EXECUTION_LOCKED_V1"
 
 
-def test_mt5_environment_is_explicit_not_inferred_from_balance():
-    info = SimpleNamespace(
-        balance=20.0,
-        trade_allowed=True,
-        server="DemoBroker-Server",
-    )
-    caps = account_capabilities_from_mt5(
-        info,
-        environment=TradingEnvironment.DEMO,
-        connected=True,
-        connection_healthy=True,
-        execution_enabled=False,
-    )
-    assert caps.environment is TradingEnvironment.DEMO
-    assert caps.server == "DemoBroker-Server"
-    assert caps.trading_allowed
+def test_mt5_adapter_requires_actual_trade_mode_for_environment_authority():
+    with pytest.raises(ValueError, match="MT5_ACCOUNT_TRADE_MODE_UNAVAILABLE"):
+        account_capabilities_from_mt5(
+            SimpleNamespace(trade_allowed=True),
+            environment=TradingEnvironment.DEMO,
+            connected=True,
+            connection_healthy=True,
+            execution_enabled=False,
+        )
