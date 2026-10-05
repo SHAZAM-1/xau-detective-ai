@@ -9,7 +9,7 @@ from __future__ import annotations
 import argparse
 import time
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any, Protocol
 
@@ -24,7 +24,18 @@ TIMEFRAMES = (Timeframe.D1, Timeframe.H4, Timeframe.H1, Timeframe.M15, Timeframe
 
 
 class RuntimeService(Protocol):
-    def cycle(self, *, profile: TradingProfile, d1: tuple, h4: tuple, h1: tuple, m15: tuple, m5: tuple, now: datetime, idempotency_key: str) -> DemoCycleResult: ...
+    def cycle(
+        self,
+        *,
+        profile: TradingProfile,
+        d1: tuple,
+        h4: tuple,
+        h1: tuple,
+        m15: tuple,
+        m5: tuple,
+        now: datetime,
+        idempotency_key: str,
+    ) -> DemoCycleResult: ...
 
 
 @dataclass(frozen=True)
@@ -58,7 +69,13 @@ def build_profile(config: RuntimeConfig) -> TradingProfile:
     )
 
 
-def fetch_closed_snapshot(source: MT5CandleSource, *, symbol: str, count: int, now: datetime) -> dict[Timeframe, tuple]:
+def fetch_closed_snapshot(
+    source: MT5CandleSource,
+    *,
+    symbol: str,
+    count: int,
+    now: datetime,
+) -> dict[Timeframe, tuple]:
     snapshots = load_multi_timeframe(
         source,
         symbol,
@@ -67,7 +84,11 @@ def fetch_closed_snapshot(source: MT5CandleSource, *, symbol: str, count: int, n
         now=now,
     )
     result = {snapshot.timeframe: snapshot for snapshot in snapshots}
-    reasons = [f"{snapshot.timeframe.value}:{','.join(snapshot.quality.reasons)}" for snapshot in snapshots if not snapshot.quality.usable]
+    reasons = [
+        f"{snapshot.timeframe.value}:{','.join(snapshot.quality.reasons)}"
+        for snapshot in snapshots
+        if not snapshot.quality.usable
+    ]
     if reasons:
         raise RuntimeError("MARKET_DATA_REJECTED:" + "|".join(reasons))
     if any(not result[timeframe].candles for timeframe in TIMEFRAMES):
@@ -83,11 +104,22 @@ def run_once(
     symbol: str,
     candle_count: int,
     now: datetime | None = None,
-) -> tuple[datetime, DemoCycleResult]:
+    last_closed_m5: datetime | None = None,
+) -> tuple[datetime, DemoCycleResult | None]:
     timestamp = now or datetime.now(UTC)
-    data = fetch_closed_snapshot(source, symbol=symbol, count=candle_count, now=timestamp)
+    data = fetch_closed_snapshot(
+        source,
+        symbol=symbol,
+        count=candle_count,
+        now=timestamp,
+    )
     m5 = data[Timeframe.M5]
     closed_m5 = m5[-1].timestamp
+
+    # Do not re-run analysis/execution while polling the same closed candle.
+    if closed_m5 == last_closed_m5:
+        return closed_m5, None
+
     key = f"{symbol}:M5:{closed_m5.isoformat()}"
     result = service.cycle(
         profile=profile,
@@ -112,8 +144,10 @@ def run_demo_runtime(
 ) -> None:
     config.validate()
     profile = build_profile(config)
+
     if config.execution_enabled and not config.auto_execution_enabled:
         raise ValueError("DEMO_EXECUTION_REQUIRES_AUTO_EXECUTION")
+
     if not mt5_module.initialize():
         raise RuntimeError(f"MT5_INITIALIZE_FAILED:{mt5_module.last_error()}")
 
@@ -136,32 +170,48 @@ def run_demo_runtime(
                     symbol=config.symbol,
                     candle_count=config.candle_count,
                     now=now,
+                    last_closed_m5=last_closed_m5,
                 )
+
                 if closed_m5 != last_closed_m5:
-                    print(f"{closed_m5.isoformat()} | {result.reason}")
+                    print(
+                        f"{closed_m5.isoformat()} | "
+                        f"{result.reason if result is not None else 'SKIPPED'}"
+                    )
                     last_closed_m5 = closed_m5
+
                 if once:
                     return
             except Exception as exc:
                 print(f"RUNTIME_REJECTED | {type(exc).__name__}:{exc}")
                 if once:
                     raise
+
             sleep_fn(config.poll_seconds)
     finally:
         mt5_module.shutdown()
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="XAU Detective AI Pepperstone MT5 Demo runtime")
+    parser = argparse.ArgumentParser(
+        description="XAU Detective AI Pepperstone MT5 Demo runtime"
+    )
     parser.add_argument("--symbol", default="XAUUSD")
     parser.add_argument("--candle-count", type=int, default=300)
     parser.add_argument("--poll-seconds", type=float, default=5.0)
     parser.add_argument("--risk-fraction", type=Decimal, default=Decimal("0.01"))
-    parser.add_argument("--once", action="store_true", help="Run one closed-candle cycle and exit.")
+    parser.add_argument(
+        "--once",
+        action="store_true",
+        help="Run one closed-candle cycle and exit.",
+    )
     parser.add_argument(
         "--execute-demo",
         action="store_true",
-        help="Explicitly enable automatic Demo execution. Live accounts remain locked by policy.",
+        help=(
+            "Explicitly enable automatic Demo execution. "
+            "Live accounts remain locked by policy."
+        ),
     )
     return parser
 
@@ -176,9 +226,14 @@ def main(argv: list[str] | None = None) -> int:
         auto_execution_enabled=args.execute_demo,
         risk_fraction=args.risk_fraction,
     )
+
     import MetaTrader5 as mt5
 
-    run_demo_runtime(mt5_module=mt5, config=config, once=args.once)
+    run_demo_runtime(
+        mt5_module=mt5,
+        config=config,
+        once=args.once,
+    )
     return 0
 
 
