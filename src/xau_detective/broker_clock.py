@@ -6,7 +6,7 @@ broker UTC offset without hardcoding GMT+2/GMT+3 or a user's local timezone.
 """
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Iterable
 
 
