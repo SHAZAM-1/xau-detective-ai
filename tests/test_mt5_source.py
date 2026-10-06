@@ -58,3 +58,33 @@ def test_mt5_source_fetch_maps_rates():
 def test_mt5_source_uses_terminal_tick_time():
     source = MT5CandleSource(FakeMT5())
     assert source.market_time("XAUUSD") == datetime.fromtimestamp(1767226200, tz=UTC)
+
+
+class SymbolMT5(FakeMT5):
+    def symbol_info(self, symbol):
+        return None if symbol == "XAUUSD" else object()
+
+    def symbols_get(self):
+        return [type("Symbol", (), {"name": "XAUUSD.a"})()]
+
+    def symbol_select(self, symbol, enable):
+        return symbol == "XAUUSD.a"
+
+
+def test_mt5_source_resolves_pepperstone_symbol_suffix():
+    assert MT5CandleSource(SymbolMT5()).resolve_symbol("XAUUSD") == "XAUUSD.a"
+
+
+class AmbiguousSymbolMT5(SymbolMT5):
+    def symbols_get(self):
+        return [
+            type("Symbol", (), {"name": "XAUUSD.a"})(),
+            type("Symbol", (), {"name": "XAUUSD.raw"})(),
+        ]
+
+
+def test_mt5_source_rejects_ambiguous_symbol_suffix():
+    import pytest
+
+    with pytest.raises(RuntimeError, match="MT5_SYMBOL_AMBIGUOUS"):
+        MT5CandleSource(AmbiguousSymbolMT5()).resolve_symbol("XAUUSD")
