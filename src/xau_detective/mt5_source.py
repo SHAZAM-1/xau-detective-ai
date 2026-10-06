@@ -5,10 +5,11 @@ optional dependency with: pip install -e ".[mt5]".
 """
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
 from .market import Candle
-from .mt5_adapter import candle_from_mt5
+from .mt5_adapter import _utc_timestamp, candle_from_mt5
 from .timeframes import Timeframe
 
 
@@ -39,6 +40,16 @@ class MT5CandleSource:
             error = self.mt5.last_error()
             raise RuntimeError(f"MT5 candle request failed: {error}")
         return tuple(candle_from_mt5(rate) for rate in rates)
+
+    def market_time(self, symbol: str) -> datetime:
+        """Return the MT5 terminal clock used by the market data."""
+        try:
+            tick = self.mt5.symbol_info_tick(symbol)
+        except Exception as exc:
+            raise RuntimeError("MT5_MARKET_TIME_UNAVAILABLE") from exc
+        if tick is None or not hasattr(tick, "time"):
+            raise RuntimeError("MT5_MARKET_TIME_UNAVAILABLE")
+        return _utc_timestamp(tick.time)
 
     def shutdown(self) -> None:
         self.mt5.shutdown()

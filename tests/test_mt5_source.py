@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from decimal import Decimal
 
 from xau_detective.mt5_source import MT5CandleSource
@@ -38,6 +39,10 @@ class FakeMT5:
     def last_error(self):
         return "fake error"
 
+    def symbol_info_tick(self, symbol):
+        assert symbol == "XAUUSD"
+        return type("Tick", (), {"time": 1767226200})()
+
     def shutdown(self):
         pass
 
@@ -47,3 +52,9 @@ def test_mt5_source_fetch_maps_rates():
     assert len(candles) == 2
     assert candles[0].close == Decimal(4005)
     assert candles[1].close == Decimal(4010)
+
+
+
+def test_mt5_source_uses_terminal_tick_time():
+    source = MT5CandleSource(FakeMT5())
+    assert source.market_time("XAUUSD") == datetime.fromtimestamp(1767226200, tz=UTC)

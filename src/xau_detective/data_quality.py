@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import timedelta
 from itertools import pairwise
+from typing import Callable
 
 from .market import Candle
 
@@ -14,7 +15,11 @@ class DataQuality:
     reasons: tuple[str, ...]
 
 
-def validate_candles(candles: tuple[Candle, ...], expected_interval: timedelta | None = None) -> DataQuality:
+def validate_candles(
+    candles: tuple[Candle, ...],
+    expected_interval: timedelta | None = None,
+    gap_is_expected: Callable[[object, object], bool] | None = None,
+) -> DataQuality:
     if not candles:
         return DataQuality(False, ("NO_CANDLES",))
     reasons: list[str] = []
@@ -23,8 +28,9 @@ def validate_candles(candles: tuple[Candle, ...], expected_interval: timedelta |
             reasons.append("NON_MONOTONIC_TIMESTAMPS")
             break
         if expected_interval is not None and current.timestamp - previous.timestamp > expected_interval * 2:
-            reasons.append("DATA_GAP")
-            break
+            if gap_is_expected is None or not gap_is_expected(previous.timestamp, current.timestamp):
+                reasons.append("DATA_GAP")
+                break
     for candle in candles:
         if any(price <= 0 for price in (candle.open, candle.high, candle.low, candle.close)):
             reasons.append("NON_POSITIVE_PRICE")

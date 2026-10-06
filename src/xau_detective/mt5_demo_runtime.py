@@ -15,6 +15,7 @@ from typing import Any, Protocol
 
 from .ingestion import load_multi_timeframe
 from .mt5_demo_service import DemoCycleResult, MT5DemoTradingService
+from .mt5_market_hours import pepperstone_gold_gap_is_expected
 from .mt5_source import MT5CandleSource
 from .timeframes import Timeframe
 from .trading_profile import TradingProfile
@@ -82,6 +83,7 @@ def fetch_closed_snapshot(
         TIMEFRAMES,
         count,
         now=now,
+        gap_is_expected=pepperstone_gold_gap_is_expected,
     )
     result = {snapshot.timeframe: snapshot for snapshot in snapshots}
     reasons = [
@@ -161,7 +163,7 @@ def run_demo_runtime(
 
     try:
         while True:
-            now = now_fn()
+            now = source.market_time(config.symbol)
             try:
                 closed_m5, result = run_once(
                     source=source,

@@ -88,3 +88,21 @@ def test_load_multi_timeframe_preserves_requested_order():
         ("XAUUSD", Timeframe.M15, 10),
         ("XAUUSD", Timeframe.M5, 10),
     ]
+
+
+
+def test_load_timeframe_passes_gap_policy_to_quality_gate():
+    now = datetime(2026, 10, 6, 2, 0, tzinfo=UTC)
+    candles = (
+        candle(datetime(2026, 10, 5, 23, 55, tzinfo=UTC)),
+        candle(datetime(2026, 10, 6, 1, 0, tzinfo=UTC)),
+    )
+    snapshot = load_timeframe(
+        FakeSource(candles),
+        "XAUUSD",
+        Timeframe.M5,
+        10,
+        now=now,
+        gap_is_expected=lambda previous, current: True,
+    )
+    assert snapshot.quality.usable
