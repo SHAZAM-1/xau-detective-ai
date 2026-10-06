@@ -14,6 +14,7 @@ from .broker import validate_broker_spec
 from .data_quality import validate_candles
 from .environment import AccountCapabilities, TradingEnvironment
 from .models import AccountSnapshot, BrokerSpec, ExecutionSnapshot
+from .mt5_market_hours import pepperstone_gold_gap_is_expected
 from .timeframes import Timeframe, expected_interval
 from .trading_profile import TradingProfile
 
@@ -36,7 +37,11 @@ def _validate_series(
     timeframe: Timeframe,
 ) -> list[str]:
     reasons: list[str] = []
-    quality = validate_candles(candles, expected_interval(timeframe))
+    quality = validate_candles(
+        candles,
+        expected_interval(timeframe),
+        gap_is_expected=pepperstone_gold_gap_is_expected,
+    )
     reasons.extend(f"{name}_{reason}" for reason in quality.reasons)
     if candles:
         latest = candles[-1]
