@@ -14,7 +14,7 @@ class TradingProfile:
     max_spread: Decimal | None = None
     max_slippage: Decimal | None = None
     stop_atr_multiple: Decimal = Decimal("1.5")
-    allowed_sessions: tuple[str, ...] = ("LONDON", "NEW_YORK")
+    allowed_sessions: tuple[str, ...] = ("ASIA", "LONDON", "NEW_YORK")
 
     def validate(self) -> None:
         if self.risk_fraction <= 0 or self.risk_fraction >= 1:
