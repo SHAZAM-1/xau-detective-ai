@@ -1,6 +1,8 @@
 from datetime import UTC, datetime
 from decimal import Decimal
 
+import pytest
+
 from xau_detective.mt5_source import MT5CandleSource
 from xau_detective.timeframes import Timeframe
 
@@ -54,7 +56,6 @@ def test_mt5_source_fetch_maps_rates():
     assert candles[1].close == Decimal(4010)
 
 
-
 def test_mt5_source_uses_terminal_tick_time():
     source = MT5CandleSource(FakeMT5())
     assert source.market_time("XAUUSD") == datetime.fromtimestamp(1767226200, tz=UTC)
@@ -84,7 +85,5 @@ class AmbiguousSymbolMT5(SymbolMT5):
 
 
 def test_mt5_source_rejects_ambiguous_symbol_suffix():
-    import pytest
-
     with pytest.raises(RuntimeError, match="MT5_SYMBOL_AMBIGUOUS"):
         MT5CandleSource(AmbiguousSymbolMT5()).resolve_symbol("XAUUSD")
