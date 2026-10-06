@@ -5,9 +5,10 @@ optional dependency with: pip install -e ".[mt5]".
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
+from .broker_clock import infer_broker_offset, to_broker_time
 from .market import Candle
 from .mt5_adapter import _utc_timestamp, candle_from_mt5
 from .timeframes import Timeframe
@@ -42,7 +43,7 @@ class MT5CandleSource:
         return tuple(candle_from_mt5(rate) for rate in rates)
 
     def market_time(self, symbol: str) -> datetime:
-        """Return the MT5 terminal clock used by the market data."""
+        """Return the MT5 market clock normalized to UTC."""
         try:
             tick = self.mt5.symbol_info_tick(symbol)
         except Exception as exc:
@@ -50,6 +51,16 @@ class MT5CandleSource:
         if tick is None or not hasattr(tick, "time"):
             raise RuntimeError("MT5_MARKET_TIME_UNAVAILABLE")
         return _utc_timestamp(tick.time)
+
+    def broker_offset(self, symbol: str) -> timedelta:
+        """Infer the current broker server UTC offset from D1 candle opens."""
+        daily = self.fetch(symbol, Timeframe.D1, 3)
+        return infer_broker_offset(candle.timestamp for candle in daily)
+
+    def broker_time(self, symbol: str, timestamp: datetime | None = None) -> datetime:
+        """Return a UTC timestamp converted to the broker's current server time."""
+        utc_timestamp = timestamp or self.market_time(symbol)
+        return to_broker_time(utc_timestamp, self.broker_offset(symbol))
 
     def shutdown(self) -> None:
         self.mt5.shutdown()
