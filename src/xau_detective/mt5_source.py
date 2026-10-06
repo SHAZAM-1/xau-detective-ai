@@ -26,6 +26,36 @@ class MT5CandleSource:
             mt5_module = mt5
         self.mt5 = mt5_module
 
+    def resolve_symbol(self, requested: str) -> str:
+        """Resolve a Pepperstone symbol suffix without silently choosing an instrument."""
+        if not requested:
+            raise ValueError("SYMBOL_REQUIRED")
+
+        exact = self.mt5.symbol_info(requested)
+        if exact is not None:
+            if not self.mt5.symbol_select(requested, True):
+                raise RuntimeError(f"MT5_SYMBOL_SELECT_FAILED:{requested}")
+            return requested
+
+        symbols_get = getattr(self.mt5, "symbols_get", None)
+        if symbols_get is None:
+            raise RuntimeError(f"MT5_SYMBOL_NOT_FOUND:{requested}")
+
+        candidates = []
+        for item in symbols_get() or ():
+            name = str(getattr(item, "name", ""))
+            if name.startswith(requested + ".") or name.startswith(requested + "#"):
+                candidates.append(name)
+
+        candidates = sorted(set(candidates))
+        if len(candidates) != 1:
+            reason = "AMBIGUOUS" if len(candidates) > 1 else "NOT_FOUND"
+            raise RuntimeError(f"MT5_SYMBOL_{reason}:{requested}:{candidates}")
+        resolved = candidates[0]
+        if not self.mt5.symbol_select(resolved, True):
+            raise RuntimeError(f"MT5_SYMBOL_SELECT_FAILED:{resolved}")
+        return resolved
+
     def fetch(self, symbol: str, timeframe: Timeframe, count: int) -> tuple[Candle, ...]:
         if count <= 0:
             return ()
