@@ -154,22 +154,23 @@ def run_demo_runtime(
         raise RuntimeError(f"MT5_INITIALIZE_FAILED:{mt5_module.last_error()}")
 
     source = MT5CandleSource(mt5_module)
+    resolved_symbol = source.resolve_symbol(config.symbol)
     service = MT5DemoTradingService(
         mt5_module,
-        symbol=config.symbol,
+        symbol=resolved_symbol,
         execution_enabled=config.execution_enabled,
     )
     last_closed_m5: datetime | None = None
 
     try:
         while True:
-            now = source.market_time(config.symbol)
+            now = source.market_time(resolved_symbol)
             try:
                 closed_m5, result = run_once(
                     source=source,
                     service=service,
                     profile=profile,
-                    symbol=config.symbol,
+                    symbol=resolved_symbol,
                     candle_count=config.candle_count,
                     now=now,
                     last_closed_m5=last_closed_m5,
