@@ -1,9 +1,10 @@
 """Safe MT5 Demo runner boundary."""
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import Any, Callable, Protocol
 from .environment import AccountCapabilities, TradingEnvironment, environment_reason
 from .models import AccountSnapshot, BrokerSpec, ExecutionSnapshot
+from .mt5_market_hours import pepperstone_gold_gap_is_expected
 from .pipeline import AnalysisConfig, MarketAnalysis, analyze_market
 from .trading_profile import TradingProfile
 
@@ -43,7 +44,19 @@ def build_demo_proposal(
         return DemoTradeProposal(False, environment_reason(capabilities), None, account, broker, execution, capabilities)
     if not capabilities.symbol_available:
         return DemoTradeProposal(False, "SYMBOL_UNAVAILABLE", None, account, broker, execution, capabilities)
-    analysis = analyze_market(d1=d1,h4=h4,h1=h1,m15=m15,m5=m5,account=account,broker=broker,execution=execution,config=AnalysisConfig.from_profile(profile),now=now)
+    analysis = analyze_market(
+        d1=d1,
+        h4=h4,
+        h1=h1,
+        m15=m15,
+        m5=m5,
+        account=account,
+        broker=broker,
+        execution=execution,
+        config=AnalysisConfig.from_profile(profile),
+        now=now,
+        gap_is_expected=pepperstone_gold_gap_is_expected,
+    )
     return DemoTradeProposal(
         allowed=analysis.decision.direction.value != "NO_TRADE" and analysis.decision.risk is not None and analysis.decision.risk.executable,
         reason=analysis.decision.reason, analysis=analysis, account=account, broker=broker, execution=execution, environment=capabilities)
