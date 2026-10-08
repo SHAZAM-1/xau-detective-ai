@@ -1,7 +1,7 @@
 """Safe MT5 Demo runner boundary."""
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Any, Callable, Protocol
+from typing import Any, Protocol
 from .environment import AccountCapabilities, TradingEnvironment, environment_reason
 from .models import AccountSnapshot, BrokerSpec, ExecutionSnapshot
 from .mt5_market_hours import pepperstone_gold_gap_is_expected
