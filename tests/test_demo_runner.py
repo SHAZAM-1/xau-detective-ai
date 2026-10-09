@@ -82,7 +82,7 @@ def test_demo_runner_passes_pepperstone_gap_policy_to_pipeline(monkeypatch):
     def fake_analyze_market(**kwargs):
         captured["gap_is_expected"] = kwargs["gap_is_expected"]
         return SimpleNamespace(
-            decision=SimpleNamespace(direction=Direction.NO_TRADE, risk=None),
+            decision=SimpleNamespace(direction=Direction.NO_TRADE, risk=None, reason="NO_TRADE"),
             session="NEW_YORK",
         )
 
