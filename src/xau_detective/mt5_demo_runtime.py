@@ -189,15 +189,31 @@ def run_demo_runtime(
         last_closed_m5: datetime | None = None
 
         while True:
-            now = source.market_time(resolved_symbol)
             try:
+                wall_now = now_fn()
+                if wall_now.tzinfo is None:
+                    raise RuntimeError("RUNTIME_CLOCK_NOT_TIMEZONE_AWARE")
+                wall_now = wall_now.astimezone(UTC)
+
+                market_now = source.market_time(resolved_symbol)
+                if market_now.tzinfo is None:
+                    raise RuntimeError("MT5_MARKET_TIME_NOT_TIMEZONE_AWARE")
+                market_now = market_now.astimezone(UTC)
+                clock_lag = wall_now - market_now
+                if clock_lag > timedelta(minutes=2):
+                    raise RuntimeError("MT5_MARKET_TIME_STALE")
+                if clock_lag < -timedelta(seconds=30):
+                    raise RuntimeError("MT5_MARKET_TIME_IN_FUTURE")
+
+                # Use wall-clock UTC to determine candle closure only after the
+                # broker tick has passed the freshness/skew gate above.
                 closed_m5, result = run_once(
                     source=source,
                     service=service,
                     profile=profile,
                     symbol=resolved_symbol,
                     candle_count=config.candle_count,
-                    now=now,
+                    now=wall_now,
                     last_closed_m5=last_closed_m5,
                 )
 
