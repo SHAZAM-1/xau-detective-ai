@@ -84,7 +84,9 @@ class MT5CandleSource:
 
     def broker_offset(self, symbol: str) -> timedelta:
         """Infer the current broker server UTC offset from D1 candle opens."""
-        daily = self.fetch(symbol, Timeframe.D1, 3)
+        # Only the latest D1 open represents the current broker offset.
+        # A multi-day sample can legitimately straddle a DST transition.
+        daily = self.fetch(symbol, Timeframe.D1, 1)
         return infer_broker_offset(candle.timestamp for candle in daily)
 
     def broker_time(self, symbol: str, timestamp: datetime | None = None) -> datetime:
