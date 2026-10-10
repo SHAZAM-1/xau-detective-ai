@@ -307,3 +307,7 @@ def test_runtime_rejects_stale_market_tick_before_cycle(monkeypatch, tmp_path):
 
     assert cycle_calls == []
     assert shutdown_calls == [True]
+    events = JsonlAuditLog(tmp_path / "audit.jsonl").events()
+    assert events[-1].event == "runtime_rejection"
+    assert events[-1].reason == "MT5_MARKET_TIME_STALE"
+    assert events[-1].status == "BLOCKED"
