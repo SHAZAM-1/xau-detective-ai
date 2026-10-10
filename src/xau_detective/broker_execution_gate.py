@@ -79,8 +79,27 @@ class BrokerExecutionGate:
         if any(not value.is_finite() for value in normalized_inputs):
             return ExecutionGateResult(False, "INVALID_EXECUTION_NUMERIC_VALUE")
 
-        if getattr(symbol_info, "trade_mode", 0) == 0:
+        raw_trade_mode = getattr(symbol_info, "trade_mode", None)
+        try:
+            trade_mode_value = Decimal(str(raw_trade_mode))
+        except (InvalidOperation, TypeError, ValueError):
+            return ExecutionGateResult(False, "INVALID_SYMBOL_TRADE_MODE")
+        if (
+            not trade_mode_value.is_finite()
+            or trade_mode_value != trade_mode_value.to_integral_value()
+        ):
+            return ExecutionGateResult(False, "INVALID_SYMBOL_TRADE_MODE")
+        trade_mode = int(trade_mode_value)
+        if trade_mode == 0:
             return ExecutionGateResult(False, "SYMBOL_TRADING_DISABLED")
+        if trade_mode == 3:
+            return ExecutionGateResult(False, "SYMBOL_CLOSE_ONLY")
+        if trade_mode not in {1, 2, 4}:
+            return ExecutionGateResult(False, "UNSUPPORTED_SYMBOL_TRADE_MODE")
+        if trade_mode == 1 and intent.direction is Direction.SELL:
+            return ExecutionGateResult(False, "SYMBOL_DIRECTION_NOT_ALLOWED")
+        if trade_mode == 2 and intent.direction is Direction.BUY:
+            return ExecutionGateResult(False, "SYMBOL_DIRECTION_NOT_ALLOWED")
 
         order_mode = getattr(symbol_info, "order_mode", None)
         market_flag = getattr(mt5, "SYMBOL_ORDER_MARKET", 1)
