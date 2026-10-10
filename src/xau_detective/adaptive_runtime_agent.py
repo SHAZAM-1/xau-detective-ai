@@ -265,4 +265,7 @@ class AdaptiveRuntimeAgent:
 
     @staticmethod
     def is_strategy_change(action: str) -> bool:
-        return action in FORBIDDEN_ADAPTATIONS
+        if not isinstance(action, str):
+            return False
+        normalized = "".join(action.split()).upper()
+        return normalized in FORBIDDEN_ADAPTATIONS
