@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from decimal import Decimal, InvalidOperation
 from itertools import pairwise
 from typing import Callable
 
@@ -49,25 +50,31 @@ def validate_candles(
                 break
     for candle in candles:
         prices = (candle.open, candle.high, candle.low, candle.close)
-        if any(not price.is_finite() for price in prices):
+        try:
+            finite_prices = tuple(Decimal(str(price)) for price in prices)
+            finite_volume = Decimal(str(candle.volume))
+        except (InvalidOperation, TypeError, ValueError):
+            reasons.append("INVALID_NUMERIC_VALUE")
+            break
+        if any(not price.is_finite() for price in finite_prices):
             reasons.append("NON_FINITE_PRICE")
             break
-        if not candle.volume.is_finite():
+        if not finite_volume.is_finite():
             reasons.append("NON_FINITE_VOLUME")
             break
-        if any(price <= 0 for price in prices):
+        if any(price <= 0 for price in finite_prices):
             reasons.append("NON_POSITIVE_PRICE")
             break
-        if candle.volume < 0:
+        if finite_volume < 0:
             reasons.append("NEGATIVE_VOLUME")
             break
-        if candle.high < max(candle.open, candle.close) or candle.low > min(candle.open, candle.close):
+        if finite_prices[1] < max(finite_prices[0], finite_prices[3]) or finite_prices[2] > min(finite_prices[0], finite_prices[3]):
             reasons.append("INVALID_OHLC")
             break
-        if candle.low > candle.high:
+        if finite_prices[2] > finite_prices[1]:
             reasons.append("INVALID_RANGE")
             break
-        if candle.high == candle.low:
+        if finite_prices[1] == finite_prices[2]:
             reasons.append("ZERO_RANGE_CANDLE")
             break
     return DataQuality(not reasons, tuple(reasons))
