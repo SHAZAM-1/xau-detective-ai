@@ -177,3 +177,39 @@ def test_monte_carlo_rejects_non_finite_equity_and_r_multiples():
             (Decimal("1"),),
             trade_r_multiples=(Decimal("NaN"),),
         )
+
+
+
+def test_backtest_monte_carlo_rejects_non_finite_trade_values():
+    from xau_detective.backtest import BacktestResult, BacktestTrade
+    from xau_detective.models import Direction
+    from xau_detective.monte_carlo import run_backtest_monte_carlo
+
+    for pnl, risk in (
+        (Decimal("NaN"), Decimal("1")),
+        (Decimal("1"), Decimal("Infinity")),
+    ):
+        trade = BacktestTrade(
+            signal_index=0,
+            entry_index=1,
+            exit_index=2,
+            direction=Direction.BUY,
+            entry_price=Decimal("100"),
+            exit_price=Decimal("101"),
+            volume=Decimal("1"),
+            gross_pnl=pnl,
+            risk_amount=risk,
+            commission=Decimal("0"),
+            net_pnl=pnl,
+            exit_reason="TEST",
+        )
+        result = BacktestResult(
+            trades=(trade,),
+            net_pnl=pnl,
+            wins=0,
+            losses=0,
+            breakevens=1,
+            max_drawdown=Decimal("0"),
+        )
+        with pytest.raises(ValueError, match="finite numeric values"):
+            run_backtest_monte_carlo(result)
