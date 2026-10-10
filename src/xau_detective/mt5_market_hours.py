@@ -6,7 +6,7 @@ Broker-session validation against captured MT5 candles remains necessary.
 """
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from .timeframes import Timeframe
 
 _MIN_ROLLOVER_GAP = timedelta(minutes=30)
@@ -75,15 +75,24 @@ def pepperstone_gold_gap_is_expected(
 ) -> bool:
     """Classify a bounded known-closure-shaped gap for a specific timeframe.
 
-    If timeframe is omitted, preserve the legacy broad bounds for compatibility.
-    Production paths should always supply it. Naive timestamps, reversed ranges,
-    unknown timeframes, and overlong gaps fail closed.
+    The classifier uses UTC calendar dates consistently, regardless of the
+    input datetime's aware timezone. This is not a broker-session proof:
+    production should validate session boundaries against captured MT5 data.
+    If timeframe is omitted, legacy broad bounds remain for compatibility.
+    Naive timestamps, reversed ranges, unknown timeframes, and overlong gaps
+    fail closed.
     """
     if (
         previous.tzinfo is None
+        or previous.utcoffset() is None
         or current.tzinfo is None
-        or current <= previous
+        or current.utcoffset() is None
     ):
+        return False
+
+    previous = previous.astimezone(UTC)
+    current = current.astimezone(UTC)
+    if current <= previous:
         return False
 
     tf = _timeframe(timeframe)
