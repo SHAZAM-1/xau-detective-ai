@@ -55,3 +55,27 @@ def test_good_friday_gap_is_expected_for_another_easter_year():
     previous = datetime(2025, 4, 17, tzinfo=UTC)
     current = datetime(2025, 4, 21, tzinfo=UTC)
     assert pepperstone_gold_gap_is_expected(previous, current)
+
+
+def test_three_hour_weekday_gap_is_rejected_for_m5():
+    previous = datetime(2026, 10, 5, 21, tzinfo=UTC)
+    current = datetime(2026, 10, 6, 0, tzinfo=UTC)
+    assert not pepperstone_gold_gap_is_expected(previous, current, "M5")
+
+
+def test_three_hour_weekday_gap_can_be_accepted_for_h4():
+    previous = datetime(2026, 10, 5, 21, tzinfo=UTC)
+    current = datetime(2026, 10, 6, 0, tzinfo=UTC)
+    assert pepperstone_gold_gap_is_expected(previous, current, "H4")
+
+
+def test_overlong_weekend_gap_rejected_for_intraday_timeframe():
+    previous = datetime(2026, 10, 2, 22, tzinfo=UTC)
+    current = datetime(2026, 10, 5, 11, tzinfo=UTC)
+    assert not pepperstone_gold_gap_is_expected(previous, current, "M5")
+
+
+def test_unknown_timeframe_fails_closed():
+    previous = datetime(2026, 10, 5, 22, 30, tzinfo=UTC)
+    current = datetime(2026, 10, 6, 0, 30, tzinfo=UTC)
+    assert not pepperstone_gold_gap_is_expected(previous, current, "M1")
