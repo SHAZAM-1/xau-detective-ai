@@ -106,3 +106,18 @@ def test_read_only_symbol_resolution_rejects_ambiguous_suffixes():
 
     with pytest.raises(RuntimeError, match="MT5_SYMBOL_AMBIGUOUS"):
         resolve_symbol_read_only(AmbiguousMT5(), "XAUUSD")
+
+
+
+def test_market_hours_evidence_flags_insufficient_historical_samples():
+    evidence = collect_market_hours_evidence(FakeMT5(), "XAUUSD.a")
+
+    assert evidence["complete"] is False
+    assert any(
+        warning.startswith("INSUFFICIENT_CANDLES:")
+        for warning in evidence["quality_warnings"]
+    )
+    thin_window = evidence["windows"]["dst_spring_2025"]["M5"]
+    assert thin_window["evidence_sufficient"] is False
+    assert thin_window["candle_count"] == 1
+    assert thin_window["minimum_candles_for_evidence"] == 100
