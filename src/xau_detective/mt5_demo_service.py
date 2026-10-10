@@ -73,6 +73,7 @@ class MT5DemoTradingService:
         self._health = RuntimeHealthTracker()
         self._persisted_session_identity: tuple[str, str, str] | None = None
         self._session_switch_blocked = False
+        self._session_switch_event_recorded = False
         for event in self._audit.events():
             details = event.details
             if event.event == "session_identity":
@@ -83,8 +84,10 @@ class MT5DemoTradingService:
                 )
             elif event.event == "session_switch_blocked":
                 self._session_switch_blocked = True
+                self._session_switch_event_recorded = True
             elif event.event == "session_switch_acknowledged":
                 self._session_switch_blocked = False
+                self._session_switch_event_recorded = False
                 self._persisted_session_identity = (
                     str(details.get("login", "")),
                     str(details.get("server", "")),
@@ -119,6 +122,7 @@ class MT5DemoTradingService:
         timestamp = now or datetime.now(UTC)
         self._persisted_session_identity = self._identity_key(identity)
         self._session_switch_blocked = False
+        self._session_switch_event_recorded = False
         self._audit.append(
             AuditEvent(
                 timestamp=timestamp,
@@ -463,10 +467,16 @@ class MT5DemoTradingService:
         if self._session_switch_blocked:
             reason = "MT5_SESSION_CHANGED_EXECUTION_BLOCKED"
             self._health.rejected(reason)
+            audit_reason = (
+                reason
+                if not self._session_switch_event_recorded
+                else "SESSION_SWITCH_ACKNOWLEDGEMENT_REQUIRED"
+            )
+            self._session_switch_event_recorded = True
             self._audit_rejection(
                 trace_id=idempotency_key,
                 now=now,
-                reason=reason,
+                reason=audit_reason,
                 event="session_switch_blocked",
                 details={
                     "previous_login": previous_identity[0] if previous_identity else None,
