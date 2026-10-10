@@ -7,7 +7,7 @@ allowed to consume the snapshot.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 
 from .broker import validate_broker_spec
@@ -40,15 +40,25 @@ def _validate_series(
     quality = validate_candles(
         candles,
         expected_interval(timeframe),
-        gap_is_expected=pepperstone_gold_gap_is_expected,
+        timeframe=timeframe,
+        gap_is_expected_for_timeframe=pepperstone_gold_gap_is_expected,
     )
     reasons.extend(f"{name}_{reason}" for reason in quality.reasons)
     if candles:
         latest = candles[-1]
-        if latest.timestamp >= now:
-            reasons.append(f"{name}_LATEST_CANDLE_NOT_CLOSED")
-        if latest.timestamp.tzinfo is None:
+        if (
+            not isinstance(latest.timestamp, datetime)
+            or latest.timestamp.tzinfo is None
+            or latest.timestamp.utcoffset() is None
+        ):
             reasons.append(f"{name}_TIMESTAMP_NOT_TIMEZONE_AWARE")
+        elif now.tzinfo is None or now.utcoffset() is None:
+            reasons.append("PREFLIGHT_TIME_NOT_TIMEZONE_AWARE")
+        else:
+            latest_utc = latest.timestamp.astimezone(UTC)
+            now_utc = now.astimezone(UTC)
+            if latest_utc + expected_interval(timeframe) > now_utc:
+                reasons.append(f"{name}_LATEST_CANDLE_NOT_CLOSED")
     return reasons
 
 
