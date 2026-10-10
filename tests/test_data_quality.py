@@ -99,3 +99,19 @@ def test_timeframe_specific_gap_policy_fails_closed_without_timeframe():
 
     assert not result.usable
     assert "DATA_GAP" in result.reasons
+
+
+
+def test_naive_candle_timestamp_is_rejected():
+    result = validate_candles(
+        (c(datetime(2026, 10, 6, 10, 0)),),
+    )
+    assert not result.usable
+    assert "NAIVE_TIMESTAMP" in result.reasons
+
+
+def test_invalid_candle_timestamp_type_is_rejected():
+    candle = Candle(None, Decimal(1), Decimal(2), Decimal("0.5"), Decimal("1.5"))
+    result = validate_candles((candle,))
+    assert not result.usable
+    assert "INVALID_TIMESTAMP" in result.reasons
