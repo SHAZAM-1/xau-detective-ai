@@ -7,8 +7,6 @@ Broker-session validation against captured MT5 candles remains necessary.
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
-from typing import Any
-
 from .timeframes import Timeframe
 
 _MIN_ROLLOVER_GAP = timedelta(minutes=30)
@@ -49,7 +47,7 @@ def _easter_sunday(year: int) -> date:
     e = b % 4
     f = (b + 8) // 25
     g = (b - f + 1) // 3
-    h = (19 * a + b - d - 15) % 30
+    h = (19 * a + b - d - g + 15) % 30
     i = c // 4
     k = c % 4
     easter_offset = (32 + 2 * e + 2 * i - h - k) % 7
