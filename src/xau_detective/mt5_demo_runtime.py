@@ -153,16 +153,18 @@ def run_demo_runtime(
     if not mt5_module.initialize():
         raise RuntimeError(f"MT5_INITIALIZE_FAILED:{mt5_module.last_error()}")
 
-    source = MT5CandleSource(mt5_module)
-    resolved_symbol = source.resolve_symbol(config.symbol)
-    service = MT5DemoTradingService(
-        mt5_module,
-        symbol=resolved_symbol,
-        execution_enabled=config.execution_enabled,
-    )
-    last_closed_m5: datetime | None = None
-
+    # Once initialize() succeeds, every subsequent failure must still close
+    # the terminal connection (including symbol resolution and service setup).
     try:
+        source = MT5CandleSource(mt5_module)
+        resolved_symbol = source.resolve_symbol(config.symbol)
+        service = MT5DemoTradingService(
+            mt5_module,
+            symbol=resolved_symbol,
+            execution_enabled=config.execution_enabled,
+        )
+        last_closed_m5: datetime | None = None
+
         while True:
             now = source.market_time(resolved_symbol)
             try:
