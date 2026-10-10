@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from xau_detective.market_hours_evidence import collect_market_hours_evidence
+from xau_detective.market_hours_evidence import (\n    collect_market_hours_evidence,\n    resolve_symbol_read_only,\n)
 
 
 def _rate(timestamp):
@@ -73,3 +73,33 @@ def test_collect_market_hours_evidence_fails_closed_when_mt5_returns_none():
     mt5.fail = True
     with pytest.raises(RuntimeError, match="MT5_RANGE_REQUEST_FAILED"):
         collect_market_hours_evidence(mt5, "XAUUSD.a")
+
+
+
+def test_read_only_symbol_resolution_does_not_select_market_watch_symbol():
+    class SymbolMT5:
+        def symbol_info(self, symbol):
+            return None
+
+        def symbols_get(self):
+            return (SimpleNamespace(name="XAUUSD.a"),)
+
+        def symbol_select(self, symbol, selected):
+            raise AssertionError("read-only resolver must not change Market Watch")
+
+    assert resolve_symbol_read_only(SymbolMT5(), "XAUUSD") == "XAUUSD.a"
+
+
+def test_read_only_symbol_resolution_rejects_ambiguous_suffixes():
+    class AmbiguousMT5:
+        def symbol_info(self, symbol):
+            return None
+
+        def symbols_get(self):
+            return (
+                SimpleNamespace(name="XAUUSD.a"),
+                SimpleNamespace(name="XAUUSD#"),
+            )
+
+    with pytest.raises(RuntimeError, match="MT5_SYMBOL_AMBIGUOUS"):
+        resolve_symbol_read_only(AmbiguousMT5(), "XAUUSD")
