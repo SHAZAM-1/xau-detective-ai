@@ -618,3 +618,23 @@ def test_service_latches_execution_block_after_demo_account_switch():
         and event.reason == "MT5_SESSION_CHANGED_EXECUTION_BLOCKED"
         for event in service.audit_log.events()
     )
+
+    restarted = MT5DemoTradingService(
+        mt5,
+        execution_enabled=True,
+        audit_log=service.audit_log,
+    )
+    after_restart = restarted.cycle(
+        **cycle_args, idempotency_key="session-switch-after-restart"
+    )
+    assert after_restart.reason == "MT5_SESSION_CHANGED_EXECUTION_BLOCKED"
+
+    restarted.acknowledge_session_switch(
+        expected_login="456",
+        expected_server="Demo-Other",
+        now=cycle_args["now"],
+    )
+    acknowledged = restarted.cycle(
+        **cycle_args, idempotency_key="session-switch-acknowledged"
+    )
+    assert acknowledged.reason == "AUTO_ANALYSIS_DISABLED"
