@@ -56,6 +56,8 @@ class MT5DemoTradingService:
         adaptive_agent: AdaptiveRuntimeAgent | None = None,
         project_guardian: ProjectGuardian | None = None,
     ) -> None:
+        if type(execution_enabled) is not bool:
+            raise ValueError("EXECUTION_ENABLED_MUST_BE_BOOLEAN")
         self._mt5 = mt5_module
         self._symbol = symbol
         self._execution_enabled = execution_enabled
@@ -71,6 +73,73 @@ class MT5DemoTradingService:
         self._guardian = project_guardian or ProjectGuardian(self._audit)
         self._positions = MT5PositionManager(mt5_module, symbol=symbol, magic=magic)
         self._health = RuntimeHealthTracker()
+        self._persisted_session_identity: tuple[str, str, str] | None = None
+        self._session_switch_blocked = False
+        self._session_switch_event_recorded = False
+        for event in self._audit.events():
+            details = event.details
+            if event.event == "session_identity":
+                self._persisted_session_identity = (
+                    str(details.get("login", "")),
+                    str(details.get("server", "")),
+                    str(details.get("environment", "")),
+                )
+            elif event.event == "session_switch_blocked":
+                self._session_switch_blocked = True
+                self._session_switch_event_recorded = True
+            elif event.event == "session_switch_acknowledged":
+                self._session_switch_blocked = False
+                self._session_switch_event_recorded = False
+                self._persisted_session_identity = (
+                    str(details.get("login", "")),
+                    str(details.get("server", "")),
+                    str(details.get("environment", "")),
+                )
+
+    @staticmethod
+    def _identity_key(identity: Any) -> tuple[str, str, str]:
+        return (
+            str(identity.login),
+            str(identity.server),
+            str(identity.environment.value),
+        )
+
+    def acknowledge_session_switch(
+        self,
+        *,
+        expected_login: str,
+        expected_server: str,
+        now: datetime | None = None,
+    ) -> None:
+        """Explicitly acknowledge a verified Demo account after a session switch."""
+        state = self._session.state
+        if state is None:
+            raise ValueError("MT5_SESSION_NOT_ESTABLISHED")
+        identity = state.identity
+        if identity.environment is not TradingEnvironment.DEMO:
+            raise ValueError("DEMO_SESSION_REQUIRED")
+        if identity.login != str(expected_login) or identity.server != expected_server:
+            raise ValueError("SESSION_IDENTITY_MISMATCH")
+
+        timestamp = now or datetime.now(UTC)
+        self._persisted_session_identity = self._identity_key(identity)
+        self._session_switch_blocked = False
+        self._session_switch_event_recorded = False
+        self._audit.append(
+            AuditEvent(
+                timestamp=timestamp,
+                trace_id=f"session-acknowledgement:{identity.login}:{identity.server}",
+                event="session_switch_acknowledged",
+                status="ACKNOWLEDGED",
+                reason="EXPLICIT_SESSION_SWITCH_ACKNOWLEDGED",
+                symbol=self._symbol,
+                details={
+                    "login": identity.login,
+                    "server": identity.server,
+                    "environment": identity.environment.value,
+                },
+            )
+        )
 
     @property
     def audit_log(self) -> AuditLog:
@@ -240,7 +309,7 @@ class MT5DemoTradingService:
         """Reconcile a durable pending submission without sending a new order."""
         timestamp = now or datetime.now(UTC)
         pending = self._journal.latest_for_idempotency_key(idempotency_key)
-        if pending is None or pending.status != "PENDING_SUBMISSION":
+        if pending is None or pending.status not in {"PENDING_SUBMISSION", "RECOVERY_REQUIRED"}:
             raise ValueError("PENDING_SUBMISSION_NOT_FOUND")
 
         reconciler = MT5TradeReconciler(
@@ -354,6 +423,9 @@ class MT5DemoTradingService:
         if tick is None:
             return self._finish(trace_id=idempotency_key, now=now, result=DemoCycleResult(False, None, None, "MT5_TICK_UNAVAILABLE"))
 
+        terminal_trade_allowed = bool(
+            getattr(terminal_info, "trade_allowed", False)
+        )
         state = self._session.refresh(
             account_info,
             connected=connected,
@@ -362,8 +434,65 @@ class MT5DemoTradingService:
             symbol=self._symbol,
             symbol_available=symbol_available,
             mt5_module=self._mt5,
+            terminal_trade_allowed=terminal_trade_allowed,
         )
         changed = session_before != state.identity
+        current_identity = self._identity_key(state.identity)
+        previous_identity = (
+            self._identity_key(session_before)
+            if session_before is not None
+            else self._persisted_session_identity
+        )
+        identity_changed = (
+            previous_identity is not None and previous_identity != current_identity
+        )
+        if identity_changed:
+            self._session_switch_blocked = True
+        elif previous_identity is None:
+            self._persisted_session_identity = current_identity
+            self._audit.append(
+                AuditEvent(
+                    timestamp=now,
+                    trace_id=f"session-binding:{state.identity.login}:{state.identity.server}",
+                    event="session_identity",
+                    status="RECORDED",
+                    reason="INITIAL_SESSION_BINDING",
+                    symbol=self._symbol,
+                    details={
+                        "login": state.identity.login,
+                        "server": state.identity.server,
+                        "environment": state.identity.environment.value,
+                    },
+                )
+            )
+
+        if self._session_switch_blocked:
+            reason = "MT5_SESSION_CHANGED_EXECUTION_BLOCKED"
+            self._health.rejected(reason)
+            audit_reason = (
+                reason
+                if not self._session_switch_event_recorded
+                else "SESSION_SWITCH_ACKNOWLEDGEMENT_REQUIRED"
+            )
+            self._session_switch_event_recorded = True
+            self._audit_rejection(
+                trace_id=idempotency_key,
+                now=now,
+                reason=audit_reason,
+                event="session_switch_blocked",
+                details={
+                    "previous_login": previous_identity[0] if previous_identity else None,
+                    "previous_server": previous_identity[1] if previous_identity else None,
+                    "current_login": state.identity.login,
+                    "current_server": state.identity.server,
+                    "current_environment": state.identity.environment.value,
+                },
+            )
+            return self._finish(
+                trace_id=idempotency_key,
+                now=now,
+                result=DemoCycleResult(changed, None, None, reason),
+            )
 
         if state.capabilities.environment is not TradingEnvironment.DEMO:
             reason = "LIVE_EXECUTION_LOCKED_V1"
@@ -574,11 +703,30 @@ class MT5DemoTradingService:
             return self._finish(trace_id=idempotency_key, now=now, result=DemoCycleResult(changed, analysis, None, gate.reason))
 
         previous = self._journal.latest_for_idempotency_key(intent.idempotency_key)
-        if previous is not None and previous.status in {"SUBMITTED", "PENDING_SUBMISSION"}:
-            reason = "UNRESOLVED_SUBMISSION_REQUIRES_RECONCILIATION"
+        if previous is not None:
+            if previous.status in {
+                "PENDING_SUBMISSION",
+                "SUBMITTED",
+                "RECOVERY_REQUIRED",
+            }:
+                reason = "UNRESOLVED_SUBMISSION_REQUIRES_RECONCILIATION"
+            else:
+                # One idempotency key represents one execution attempt for one
+                # closed candle, even if a prior order was later closed/rejected.
+                reason = "IDEMPOTENCY_KEY_ALREADY_USED"
             self._health.rejected(reason)
-            self._audit_rejection(trace_id=idempotency_key, now=now, reason=reason, event="idempotency_rejection")
-            return self._finish(trace_id=idempotency_key, now=now, result=DemoCycleResult(changed, analysis, None, reason))
+            self._audit_rejection(
+                trace_id=idempotency_key,
+                now=now,
+                reason=reason,
+                event="idempotency_rejection",
+                details={"previous_status": previous.status},
+            )
+            return self._finish(
+                trace_id=idempotency_key,
+                now=now,
+                result=DemoCycleResult(changed, analysis, None, reason),
+            )
 
         self._journal.append(
             journal_entry_from_intent(
@@ -611,18 +759,31 @@ class MT5DemoTradingService:
                 intent=intent,
             )
         except Exception as exc:
-            reason = f"EXECUTION_ERROR:{type(exc).__name__}:{exc}"
+            # order_send may have reached the broker before the response failed.
+            # Keep the durable pending state so a restart cannot blindly retry
+            # the same candle; recovery must reconcile broker state first.
+            reason = f"EXECUTION_ERROR_UNCERTAIN:{type(exc).__name__}:{exc}"
             self._journal.append(
                 journal_entry_from_intent(
                     intent=intent,
-                    status="ERROR",
+                    status="PENDING_SUBMISSION",
                     reason=reason,
                     timestamp=now,
                 )
             )
             self._health.errored(reason)
-            self._audit_rejection(trace_id=idempotency_key, now=now, reason=reason, event="execution_failure")
-            return self._finish(trace_id=idempotency_key, now=now, result=DemoCycleResult(changed, analysis, None, reason))
+            self._audit_rejection(
+                trace_id=idempotency_key,
+                now=now,
+                reason=reason,
+                event="execution_failure",
+                details={"submission_state": "UNCERTAIN"},
+            )
+            return self._finish(
+                trace_id=idempotency_key,
+                now=now,
+                result=DemoCycleResult(changed, analysis, None, reason),
+            )
         self._journal.append(
             journal_entry_from_intent(
                 intent=intent,

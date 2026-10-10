@@ -15,19 +15,26 @@ class SessionSnapshot:
     overlap: str | None
 
 
-# UTC research windows. They deliberately overlap around London/New York.
+# UTC research windows. They cover the full weekday trading cycle and overlap
+# around the London/New York handoffs. ASIA crosses midnight.
 _WINDOWS = (
-    ("ASIA", time(0, 0), time(8, 0)),
+    ("ASIA", time(21, 0), time(8, 0)),
     ("LONDON", time(7, 0), time(16, 0)),
     ("NEW_YORK", time(13, 0), time(21, 0)),
 )
+
+
+def _in_window(value: time, start: time, end: time) -> bool:
+    if start < end:
+        return start <= value < end
+    return value >= start or value < end
 
 
 def classify_session(timestamp: datetime) -> SessionSnapshot:
     hour_minute = timestamp.time().replace(second=0, microsecond=0)
     active = [
         name for name, start, end in _WINDOWS
-        if start <= hour_minute < end
+        if _in_window(hour_minute, start, end)
     ]
 
     if len(active) == 0:

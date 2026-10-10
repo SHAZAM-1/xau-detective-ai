@@ -65,14 +65,45 @@ def test_find_ticket_reconciles_position():
     assert item.volume == Decimal("0.02")
 
 
-def test_missing_mt5_lifecycle_apis_is_safe():
+def test_missing_mt5_lifecycle_apis_fail_closed():
     class NoLifecycleMT5:
         pass
 
-    state = MT5PositionManager(
-        NoLifecycleMT5(), symbol="XAUUSD", magic=260926
-    ).snapshot()
+    try:
+        MT5PositionManager(
+            NoLifecycleMT5(), symbol="XAUUSD", magic=260926
+        ).snapshot()
+    except RuntimeError as exc:
+        assert str(exc) == "MT5_LIFECYCLE_API_UNAVAILABLE"
+    else:
+        raise AssertionError("expected missing lifecycle APIs to fail closed")
 
-    assert state.positions == ()
-    assert state.orders == ()
-    assert state.active is False
+
+def test_none_positions_result_fails_closed():
+    class BrokenPositionsMT5(FakeMT5):
+        def positions_get(self, *, symbol):
+            return None
+
+    try:
+        MT5PositionManager(
+            BrokenPositionsMT5(), symbol="XAUUSD", magic=260926
+        ).snapshot()
+    except RuntimeError as exc:
+        assert str(exc) == "MT5_POSITIONS_UNAVAILABLE"
+    else:
+        raise AssertionError("expected unavailable positions to fail closed")
+
+
+def test_none_orders_result_fails_closed():
+    class BrokenOrdersMT5(FakeMT5):
+        def orders_get(self, *, symbol):
+            return None
+
+    try:
+        MT5PositionManager(
+            BrokenOrdersMT5(), symbol="XAUUSD", magic=260926
+        ).snapshot()
+    except RuntimeError as exc:
+        assert str(exc) == "MT5_ORDERS_UNAVAILABLE"
+    else:
+        raise AssertionError("expected unavailable orders to fail closed")

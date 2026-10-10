@@ -27,6 +27,9 @@ class FakeMT5:
     def symbol_info(self, symbol):
         return SimpleNamespace(filling_mode=2)
 
+    def order_check(self, request):
+        return SimpleNamespace(retcode=0, comment="check passed")
+
     def order_send(self, request):
         self.requests.append(request)
         return self.result
@@ -140,3 +143,54 @@ def test_build_request_rejects_unsupported_filling_mode():
     mt5 = UnsupportedMT5(SimpleNamespace(retcode=10009, order=123))
     with pytest.raises(ValueError, match="NO_SUPPORTED_MARKET_FILLING_MODE"):
         MetaTrader5DemoGateway(mt5).build_request(intent())
+
+
+
+def test_send_order_rejects_zero_order_and_deal_tickets():
+    mt5 = FakeMT5(
+        SimpleNamespace(retcode=10009, order=0, deal=0, comment="done")
+    )
+    gateway = MetaTrader5DemoGateway(mt5)
+    with pytest.raises(RuntimeError, match="MT5_ORDER_ACCEPTED_WITHOUT_ID"):
+        gateway.send_order(intent())
+
+
+def test_send_order_uses_valid_deal_ticket_when_order_ticket_is_zero():
+    mt5 = FakeMT5(
+        SimpleNamespace(retcode=10009, order=0, deal=456, comment="done")
+    )
+    response = MetaTrader5DemoGateway(mt5).send_order_detailed(intent())
+    assert response.order_id is None
+    assert response.deal_id == "456"
+
+
+
+def test_build_request_fails_closed_when_filling_mode_is_missing():
+    class MissingFillingModeMT5(FakeMT5):
+        def symbol_info(self, symbol):
+            return SimpleNamespace()
+
+    mt5 = MissingFillingModeMT5(SimpleNamespace(retcode=10009, order=123))
+    with pytest.raises(ValueError, match="SYMBOL_FILLING_MODE_UNAVAILABLE"):
+        MetaTrader5DemoGateway(mt5).build_request(intent())
+
+
+def test_send_order_fails_closed_when_order_check_api_is_missing():
+    class NoOrderCheckMT5(FakeMT5):
+        order_check = None
+
+    mt5 = NoOrderCheckMT5(SimpleNamespace(retcode=10009, order=123))
+    with pytest.raises(RuntimeError, match="MT5_ORDER_CHECK_UNAVAILABLE"):
+        MetaTrader5DemoGateway(mt5).send_order(intent())
+    assert mt5.requests == []
+
+
+def test_order_check_rejection_prevents_order_send():
+    class RejectOrderCheckMT5(FakeMT5):
+        def order_check(self, request):
+            return SimpleNamespace(retcode=10016, comment="invalid stops")
+
+    mt5 = RejectOrderCheckMT5(SimpleNamespace(retcode=10009, order=123))
+    with pytest.raises(RuntimeError, match="MT5_ORDER_CHECK_REJECTED:10016"):
+        MetaTrader5DemoGateway(mt5).send_order(intent())
+    assert mt5.requests == []

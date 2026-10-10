@@ -2,6 +2,8 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from types import SimpleNamespace
 
+import pytest
+
 from xau_detective.audit_log import AuditEvent, InMemoryAuditLog
 from xau_detective.demo_execution import TradeIntent, TradeSource
 from xau_detective.environment import TradingEnvironment
@@ -437,3 +439,209 @@ def test_service_blocks_after_repeated_operational_failures():
     guard = next(event for event in audit.events() if event.event == "adaptive_runtime_guard")
     assert guard.reason == "ADAPTIVE_RUNTIME_GUARD"
     assert guard.details["repeated_failures"] == ["MT5_TICK_UNAVAILABLE"]
+
+
+
+def test_uncertain_order_submission_stays_pending_and_cannot_retry(monkeypatch):
+    from types import SimpleNamespace
+
+    mt5 = FakeMT5()
+    mt5.terminal_info = lambda: SimpleNamespace(
+        connected=True,
+        trade_allowed=True,
+    )
+    journal = InMemoryTradeJournal()
+    service = MT5DemoTradingService(
+        mt5,
+        execution_enabled=True,
+        journal=journal,
+        audit_log=InMemoryAuditLog(),
+        adaptive_agent=SimpleNamespace(
+            assess=lambda **kwargs: SimpleNamespace(
+                safe=True,
+                repeated_failures=(),
+                blocked_changes=(),
+            )
+        ),
+        project_guardian=SimpleNamespace(
+            inspect=lambda **kwargs: SimpleNamespace(
+                safe=True,
+                findings=(),
+                blocked_changes=(),
+            )
+        ),
+    )
+    service._positions = SimpleNamespace(
+        snapshot=lambda: SimpleNamespace(active=False)
+    )
+    service._execution_gate.validate = lambda **kwargs: SimpleNamespace(
+        allowed=True,
+        reason="OK",
+    )
+    monkeypatch.setattr(
+        "xau_detective.mt5_demo_service.run_production_preflight",
+        lambda **kwargs: SimpleNamespace(ready=True, reason="OK"),
+    )
+
+    execute_calls = []
+
+    def fail_after_possible_submission(**kwargs):
+        execute_calls.append(True)
+        raise RuntimeError("simulated response loss")
+
+    service._executor.execute = fail_after_possible_submission
+    intent = pending_intent("uncertain-submission-1")
+    profile = TradingProfile(
+        bot_suggestions_enabled=False,
+        auto_execution_enabled=True,
+    )
+    now = datetime(2026, 9, 27, 12, tzinfo=timezone.utc)
+
+    first = service.cycle(
+        profile=profile,
+        d1=candles(),
+        h4=candles(),
+        h1=candles(),
+        m15=candles(),
+        m5=candles(),
+        now=now,
+        idempotency_key=intent.idempotency_key,
+        user_intent=intent,
+    )
+
+    assert first.reason.startswith("EXECUTION_ERROR_UNCERTAIN:")
+    assert journal.latest_for_idempotency_key(
+        intent.idempotency_key
+    ).status == "PENDING_SUBMISSION"
+
+    second = service.cycle(
+        profile=profile,
+        d1=candles(),
+        h4=candles(),
+        h1=candles(),
+        m15=candles(),
+        m5=candles(),
+        now=now,
+        idempotency_key=intent.idempotency_key,
+        user_intent=intent,
+    )
+
+    assert second.reason == "UNRESOLVED_SUBMISSION_REQUIRES_RECONCILIATION"
+    assert execute_calls == [True]
+
+    journal.append(
+        journal_entry_from_intent(
+            intent=intent,
+            status="RECOVERY_REQUIRED",
+            reason="BROKER_STATE_NOT_FOUND_MANUAL_RECONCILIATION_REQUIRED",
+            timestamp=now,
+        )
+    )
+    third = service.cycle(
+        profile=profile,
+        d1=candles(),
+        h4=candles(),
+        h1=candles(),
+        m15=candles(),
+        m5=candles(),
+        now=now,
+        idempotency_key=intent.idempotency_key,
+        user_intent=intent,
+    )
+
+    assert third.reason == "UNRESOLVED_SUBMISSION_REQUIRES_RECONCILIATION"
+    assert execute_calls == [True]
+
+
+def test_recovery_required_can_be_reconciled_again_when_broker_state_appears():
+    mt5 = FakeMT5()
+    mt5.positions_get = lambda *, symbol: ()
+    mt5.orders_get = lambda *, symbol: ()
+    journal = InMemoryTradeJournal()
+    seed_pending(journal)
+    service = MT5DemoTradingService(mt5, journal=journal)
+
+    first = service.recover_pending_submission(
+        idempotency_key="recovery-1", order_id="777"
+    )
+    assert first.state.value == "NOT_FOUND"
+    assert journal.latest_for_idempotency_key("recovery-1").status == "RECOVERY_REQUIRED"
+
+    mt5.positions_get = lambda *, symbol: (
+        SimpleNamespace(
+            ticket=777,
+            symbol=symbol,
+            volume=Decimal("0.02"),
+            price_open=Decimal("4000"),
+            sl=Decimal("3990"),
+            tp=Decimal("4020"),
+            magic=260926,
+            comment="xau-detective-demo",
+        ),
+    )
+    second = service.recover_pending_submission(
+        idempotency_key="recovery-1", position_id="777"
+    )
+
+    assert second.state.value == "POSITION_OPEN"
+    assert journal.latest_for_idempotency_key("recovery-1").status == "RECOVERED_POSITION_OPEN"
+    assert mt5.sent == []
+
+
+
+def test_service_latches_execution_block_after_demo_account_switch():
+    mt5 = FakeMT5()
+    service = MT5DemoTradingService(mt5, execution_enabled=True)
+    profile = TradingProfile(auto_analysis_enabled=False)
+    cycle_args = {
+        "profile": profile,
+        "d1": candles(),
+        "h4": candles(),
+        "h1": candles(),
+        "m15": candles(),
+        "m5": candles(),
+        "now": datetime(2026, 9, 26, 12, tzinfo=timezone.utc),
+    }
+
+    first = service.cycle(**cycle_args, idempotency_key="session-before-switch")
+    assert first.reason == "AUTO_ANALYSIS_DISABLED"
+
+    mt5.account.login = 456
+    mt5.account.server = "Demo-Other"
+
+    second = service.cycle(**cycle_args, idempotency_key="session-switch")
+    third = service.cycle(**cycle_args, idempotency_key="session-switch-next-cycle")
+
+    assert second.reason == "MT5_SESSION_CHANGED_EXECUTION_BLOCKED"
+    assert third.reason == "MT5_SESSION_CHANGED_EXECUTION_BLOCKED"
+    assert mt5.sent == []
+    assert any(
+        event.event == "session_switch_blocked"
+        and event.reason == "MT5_SESSION_CHANGED_EXECUTION_BLOCKED"
+        for event in service.audit_log.events()
+    )
+
+    restarted = MT5DemoTradingService(
+        mt5,
+        execution_enabled=True,
+        audit_log=service.audit_log,
+    )
+    after_restart = restarted.cycle(
+        **cycle_args, idempotency_key="session-switch-after-restart"
+    )
+    assert after_restart.reason == "MT5_SESSION_CHANGED_EXECUTION_BLOCKED"
+
+    restarted.acknowledge_session_switch(
+        expected_login="456",
+        expected_server="Demo-Other",
+        now=cycle_args["now"],
+    )
+    acknowledged = restarted.cycle(
+        **cycle_args, idempotency_key="session-switch-acknowledged"
+    )
+    assert acknowledged.reason == "AUTO_ANALYSIS_DISABLED"
+
+
+def test_service_rejects_non_boolean_execution_opt_in():
+    with pytest.raises(ValueError, match="EXECUTION_ENABLED_MUST_BE_BOOLEAN"):
+        MT5DemoTradingService(FakeMT5(), execution_enabled="false")

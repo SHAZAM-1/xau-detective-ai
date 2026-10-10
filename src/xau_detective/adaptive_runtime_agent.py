@@ -101,6 +101,11 @@ class AdaptiveRuntimeAgent:
             "DATA_",
         )
         for event in recent:
+            # A deliberate account-switch lock is a policy hold, not a
+            # recurring infrastructure failure; it remains blocked until
+            # explicit acknowledgement and must not poison the post-ack guard.
+            if event.reason == "MT5_SESSION_CHANGED_EXECUTION_BLOCKED":
+                continue
             if (
                 event.status in {"BLOCKED", "REJECTED"}
                 and event.reason
@@ -260,4 +265,8 @@ class AdaptiveRuntimeAgent:
 
     @staticmethod
     def is_strategy_change(action: str) -> bool:
-        return action in FORBIDDEN_ADAPTATIONS
+        if not isinstance(action, str):
+            return False
+        normalized = "".join(action.split()).replace("_", "").upper()
+        forbidden = {item.replace("_", "") for item in FORBIDDEN_ADAPTATIONS}
+        return normalized in forbidden

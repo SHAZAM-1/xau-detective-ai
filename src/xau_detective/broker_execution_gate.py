@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from .demo_execution import TradeIntent
@@ -47,13 +47,106 @@ class BrokerExecutionGate:
             return ExecutionGateResult(False, "SYMBOL_MISMATCH")
         if intent.direction is Direction.NO_TRADE:
             return ExecutionGateResult(False, "NO_TRADE_DIRECTION")
+        if not isinstance(intent.direction, Direction) or intent.direction not in {
+            Direction.BUY,
+            Direction.SELL,
+        }:
+            return ExecutionGateResult(False, "INVALID_TRADE_DIRECTION")
 
-        if getattr(symbol_info, "trade_mode", 0) == 0:
+        typed_numeric_inputs = [
+            intent.volume,
+            intent.entry,
+            intent.stop_loss,
+            intent.take_profit,
+            estimated_slippage,
+        ]
+        if max_spread is not None:
+            typed_numeric_inputs.append(max_spread)
+        if max_slippage is not None:
+            typed_numeric_inputs.append(max_slippage)
+        if any(not isinstance(value, Decimal) for value in typed_numeric_inputs):
+            return ExecutionGateResult(False, "INVALID_EXECUTION_NUMERIC_VALUE")
+
+        # Validate every numeric value used by this gate before comparisons.
+        # Decimal NaN/Infinity can otherwise raise during ordering checks or
+        # evade ordinary range checks; malformed broker/account snapshots must
+        # fail closed with a stable result rather than escaping the gate.
+        numeric_inputs = [
+            intent.volume,
+            intent.entry,
+            intent.stop_loss,
+            intent.take_profit,
+            estimated_slippage,
+            getattr(symbol_info, "volume_min", "0"),
+            getattr(symbol_info, "volume_max", "0"),
+            getattr(symbol_info, "volume_step", "0"),
+            getattr(symbol_info, "bid", "0"),
+            getattr(symbol_info, "ask", "0"),
+            getattr(symbol_info, "point", "0"),
+            getattr(symbol_info, "trade_stops_level", "0"),
+            getattr(symbol_info, "trade_freeze_level", "0"),
+            getattr(account_info, "margin_free", "0"),
+        ]
+        if max_spread is not None:
+            numeric_inputs.append(max_spread)
+        if max_slippage is not None:
+            numeric_inputs.append(max_slippage)
+        try:
+            normalized_inputs = [Decimal(str(value)) for value in numeric_inputs]
+        except (InvalidOperation, TypeError, ValueError):
+            return ExecutionGateResult(False, "INVALID_EXECUTION_NUMERIC_VALUE")
+        if any(not value.is_finite() for value in normalized_inputs):
+            return ExecutionGateResult(False, "INVALID_EXECUTION_NUMERIC_VALUE")
+        if (
+            Decimal(str(estimated_slippage)) < 0
+            or (max_spread is not None and Decimal(str(max_spread)) <= 0)
+            or (max_slippage is not None and Decimal(str(max_slippage)) < 0)
+            or Decimal(str(getattr(symbol_info, "trade_stops_level", "0"))) < 0
+            or Decimal(str(getattr(symbol_info, "trade_freeze_level", "0"))) < 0
+        ):
+            return ExecutionGateResult(False, "INVALID_EXECUTION_NUMERIC_VALUE")
+
+        raw_trade_mode = getattr(symbol_info, "trade_mode", None)
+        try:
+            trade_mode_value = Decimal(str(raw_trade_mode))
+        except (InvalidOperation, TypeError, ValueError):
+            return ExecutionGateResult(False, "INVALID_SYMBOL_TRADE_MODE")
+        if (
+            not trade_mode_value.is_finite()
+            or trade_mode_value != trade_mode_value.to_integral_value()
+        ):
+            return ExecutionGateResult(False, "INVALID_SYMBOL_TRADE_MODE")
+        trade_mode = int(trade_mode_value)
+        if trade_mode == 0:
             return ExecutionGateResult(False, "SYMBOL_TRADING_DISABLED")
+        if trade_mode == 3:
+            return ExecutionGateResult(False, "SYMBOL_CLOSE_ONLY")
+        if trade_mode not in {1, 2, 4}:
+            return ExecutionGateResult(False, "UNSUPPORTED_SYMBOL_TRADE_MODE")
+        if trade_mode == 1 and intent.direction is Direction.SELL:
+            return ExecutionGateResult(False, "SYMBOL_DIRECTION_NOT_ALLOWED")
+        if trade_mode == 2 and intent.direction is Direction.BUY:
+            return ExecutionGateResult(False, "SYMBOL_DIRECTION_NOT_ALLOWED")
 
-        order_mode = getattr(symbol_info, "order_mode", None)
-        market_flag = getattr(mt5, "SYMBOL_ORDER_MARKET", 1)
-        if order_mode is not None and not (int(order_mode) & int(market_flag)):
+        raw_order_mode = getattr(symbol_info, "order_mode", None)
+        raw_market_flag = getattr(mt5, "SYMBOL_ORDER_MARKET", None)
+        try:
+            order_mode_value = Decimal(str(raw_order_mode))
+            market_flag_value = Decimal(str(raw_market_flag))
+        except (InvalidOperation, TypeError, ValueError):
+            return ExecutionGateResult(False, "SYMBOL_ORDER_MODE_UNAVAILABLE")
+        if (
+            not order_mode_value.is_finite()
+            or order_mode_value != order_mode_value.to_integral_value()
+            or order_mode_value < 0
+            or not market_flag_value.is_finite()
+            or market_flag_value != market_flag_value.to_integral_value()
+            or market_flag_value <= 0
+        ):
+            return ExecutionGateResult(False, "INVALID_SYMBOL_ORDER_MODE")
+        order_mode = int(order_mode_value)
+        market_flag = int(market_flag_value)
+        if not (order_mode & market_flag):
             return ExecutionGateResult(False, "MARKET_ORDERS_NOT_ALLOWED")
 
         volume = intent.volume
@@ -132,7 +225,13 @@ class BrokerExecutionGate:
                 return ExecutionGateResult(False, "MARGIN_CALCULATION_FAILED")
             if margin is None:
                 return ExecutionGateResult(False, "MARGIN_CALCULATION_FAILED")
-            if Decimal(str(margin)) >= free_margin:
+            try:
+                normalized_margin = Decimal(str(margin))
+            except (InvalidOperation, TypeError, ValueError):
+                return ExecutionGateResult(False, "MARGIN_CALCULATION_FAILED")
+            if not normalized_margin.is_finite() or normalized_margin < 0:
+                return ExecutionGateResult(False, "MARGIN_CALCULATION_FAILED")
+            if normalized_margin >= free_margin:
                 return ExecutionGateResult(False, "INSUFFICIENT_FREE_MARGIN")
 
         return ExecutionGateResult(True, "OK")

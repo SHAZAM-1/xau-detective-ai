@@ -7,15 +7,25 @@ allowed to consume the snapshot.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
-from decimal import Decimal
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal, InvalidOperation
 
 from .broker import validate_broker_spec
 from .data_quality import validate_candles
 from .environment import AccountCapabilities, TradingEnvironment
 from .models import AccountSnapshot, BrokerSpec, ExecutionSnapshot
+from .mt5_market_hours import pepperstone_gold_gap_is_expected
 from .timeframes import Timeframe, expected_interval
 from .trading_profile import TradingProfile
+
+
+_MAX_STALENESS_BY_TIMEFRAME = {
+    Timeframe.D1: timedelta(days=4),
+    Timeframe.H4: timedelta(hours=16),
+    Timeframe.H1: timedelta(hours=4),
+    Timeframe.M15: timedelta(hours=1),
+    Timeframe.M5: timedelta(minutes=20),
+}
 
 
 @dataclass(frozen=True)
@@ -36,14 +46,30 @@ def _validate_series(
     timeframe: Timeframe,
 ) -> list[str]:
     reasons: list[str] = []
-    quality = validate_candles(candles, expected_interval(timeframe))
+    quality = validate_candles(
+        candles,
+        expected_interval(timeframe),
+        timeframe=timeframe,
+        gap_is_expected_for_timeframe=pepperstone_gold_gap_is_expected,
+    )
     reasons.extend(f"{name}_{reason}" for reason in quality.reasons)
     if candles:
         latest = candles[-1]
-        if latest.timestamp >= now:
-            reasons.append(f"{name}_LATEST_CANDLE_NOT_CLOSED")
-        if latest.timestamp.tzinfo is None:
+        if (
+            not isinstance(latest.timestamp, datetime)
+            or latest.timestamp.tzinfo is None
+            or latest.timestamp.utcoffset() is None
+        ):
             reasons.append(f"{name}_TIMESTAMP_NOT_TIMEZONE_AWARE")
+        elif now.tzinfo is None or now.utcoffset() is None:
+            reasons.append("PREFLIGHT_TIME_NOT_TIMEZONE_AWARE")
+        else:
+            latest_utc = latest.timestamp.astimezone(UTC)
+            now_utc = now.astimezone(UTC)
+            if latest_utc + expected_interval(timeframe) > now_utc:
+                reasons.append(f"{name}_LATEST_CANDLE_NOT_CLOSED")
+            if now_utc - latest_utc > _MAX_STALENESS_BY_TIMEFRAME[timeframe]:
+                reasons.append(f"{name}_STALE_DATA")
     return reasons
 
 
@@ -66,8 +92,28 @@ def run_production_preflight(
 
     try:
         profile.validate()
-    except ValueError as exc:
-        reasons.append(f"INVALID_TRADING_PROFILE:{exc}")
+    except (AttributeError, TypeError, ValueError) as exc:
+        return PreflightResult(False, (f"INVALID_TRADING_PROFILE:{exc}",))
+
+    # This boundary must not let Decimal NaN/Infinity or malformed external
+    # values reach comparisons below. Return a deterministic rejection instead
+    # of allowing Decimal.InvalidOperation to escape or comparisons to mislead.
+    raw_numeric_inputs = (
+        account.balance,
+        account.equity,
+        account.free_margin,
+        execution.bid,
+        execution.ask,
+        execution.estimated_slippage,
+    )
+    if any(not isinstance(value, Decimal) for value in raw_numeric_inputs):
+        return PreflightResult(False, ("NUMERIC_INPUT_TYPE_INVALID",))
+    try:
+        numeric_inputs = tuple(Decimal(str(value)) for value in raw_numeric_inputs)
+    except (InvalidOperation, TypeError, ValueError):
+        return PreflightResult(False, ("INVALID_NUMERIC_INPUT",))
+    if any(not value.is_finite() for value in numeric_inputs):
+        return PreflightResult(False, ("NON_FINITE_NUMERIC_INPUT",))
 
     if capabilities.environment is not TradingEnvironment.DEMO:
         reasons.append("DEMO_ENVIRONMENT_REQUIRED")
@@ -102,7 +148,7 @@ def run_production_preflight(
     if profile.max_slippage is not None and execution.estimated_slippage > profile.max_slippage:
         reasons.append("SLIPPAGE_ABOVE_PROFILE_LIMIT")
 
-    if now.tzinfo is None:
+    if now.tzinfo is None or now.utcoffset() is None:
         reasons.append("PREFLIGHT_TIME_NOT_TIMEZONE_AWARE")
 
     series = (
