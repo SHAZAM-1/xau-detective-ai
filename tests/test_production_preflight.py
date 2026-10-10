@@ -69,7 +69,7 @@ def test_production_preflight_accepts_valid_demo_snapshot():
         execution=execution,
         profile=TradingProfile(),
         d1=_series(now - timedelta(days=20), timedelta(days=1)),
-        h4=_series(now - timedelta(hours=20), timedelta(hours=1)),
+        h4=_series(now - timedelta(hours=80), timedelta(hours=4)),
         h1=_series(now - timedelta(hours=20), timedelta(hours=1)),
         m15=_series(now - timedelta(hours=5), timedelta(minutes=15)),
         m5=_series(now - timedelta(hours=2), timedelta(minutes=5)),
@@ -96,7 +96,7 @@ def test_production_preflight_accepts_expected_good_friday_d1_gap():
         execution=execution,
         profile=TradingProfile(),
         d1=d1,
-        h4=_series(now - timedelta(hours=20), timedelta(hours=1)),
+        h4=_series(now - timedelta(hours=80), timedelta(hours=4)),
         h1=_series(now - timedelta(hours=20), timedelta(hours=1)),
         m15=_series(now - timedelta(hours=5), timedelta(minutes=15)),
         m5=_series(now - timedelta(hours=2), timedelta(minutes=5)),
@@ -119,7 +119,7 @@ def test_production_preflight_fails_closed_on_live_or_bad_prices():
         execution=bad_execution,
         profile=TradingProfile(),
         d1=_series(now - timedelta(days=20), timedelta(days=1)),
-        h4=_series(now - timedelta(hours=20), timedelta(hours=1)),
+        h4=_series(now - timedelta(hours=80), timedelta(hours=4)),
         h1=_series(now - timedelta(hours=20), timedelta(hours=1)),
         m15=_series(now - timedelta(hours=5), timedelta(minutes=15)),
         m5=_series(now - timedelta(hours=2), timedelta(minutes=5)),
@@ -142,10 +142,33 @@ def test_production_preflight_rejects_open_or_future_candles():
         execution=execution,
         profile=TradingProfile(),
         d1=_series(now - timedelta(days=20), timedelta(days=1)),
-        h4=_series(now - timedelta(hours=20), timedelta(hours=1)),
+        h4=_series(now - timedelta(hours=80), timedelta(hours=4)),
         h1=_series(now - timedelta(hours=20), timedelta(hours=1)),
         m15=_series(now - timedelta(hours=5), timedelta(minutes=15)),
         m5=open_m5,
+        now=now,
+    )
+    assert not result.ready
+    assert "M5_LATEST_CANDLE_NOT_CLOSED" in result.reasons
+
+
+
+def test_production_preflight_rejects_still_forming_candle_before_close_time():
+    now, capabilities, account, broker, execution = _inputs()
+    forming_m5 = _series(now - timedelta(hours=2), timedelta(minutes=5)) + (
+        _candle(now - timedelta(minutes=1)),
+    )
+    result = run_production_preflight(
+        capabilities=capabilities,
+        account=account,
+        broker=broker,
+        execution=execution,
+        profile=TradingProfile(),
+        d1=_series(now - timedelta(days=20), timedelta(days=1)),
+        h4=_series(now - timedelta(hours=80), timedelta(hours=4)),
+        h1=_series(now - timedelta(hours=20), timedelta(hours=1)),
+        m15=_series(now - timedelta(hours=5), timedelta(minutes=15)),
+        m5=forming_m5,
         now=now,
     )
     assert not result.ready
