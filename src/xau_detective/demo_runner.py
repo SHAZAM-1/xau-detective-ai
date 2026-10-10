@@ -55,7 +55,9 @@ def build_demo_proposal(
         execution=execution,
         config=AnalysisConfig.from_profile(profile),
         now=now,
-        gap_is_expected=pepperstone_gold_gap_is_expected,
+        gap_is_expected_for_timeframe=lambda previous, current, timeframe: (
+            pepperstone_gold_gap_is_expected(previous, current, timeframe)
+        ),
     )
     return DemoTradeProposal(
         allowed=analysis.decision.direction.value != "NO_TRADE" and analysis.decision.risk is not None and analysis.decision.risk.executable,
