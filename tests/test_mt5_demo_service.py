@@ -437,3 +437,92 @@ def test_service_blocks_after_repeated_operational_failures():
     guard = next(event for event in audit.events() if event.event == "adaptive_runtime_guard")
     assert guard.reason == "ADAPTIVE_RUNTIME_GUARD"
     assert guard.details["repeated_failures"] == ["MT5_TICK_UNAVAILABLE"]
+
+
+
+def test_uncertain_order_submission_stays_pending_and_cannot_retry(monkeypatch):
+    from types import SimpleNamespace
+
+    mt5 = FakeMT5()
+    mt5.terminal_info = lambda: SimpleNamespace(
+        connected=True,
+        trade_allowed=True,
+    )
+    journal = InMemoryTradeJournal()
+    service = MT5DemoTradingService(
+        mt5,
+        execution_enabled=True,
+        journal=journal,
+        audit_log=InMemoryAuditLog(),
+        adaptive_agent=SimpleNamespace(
+            assess=lambda **kwargs: SimpleNamespace(
+                safe=True,
+                repeated_failures=(),
+                blocked_changes=(),
+            )
+        ),
+        project_guardian=SimpleNamespace(
+            inspect=lambda **kwargs: SimpleNamespace(
+                safe=True,
+                findings=(),
+                blocked_changes=(),
+            )
+        ),
+    )
+    service._positions = SimpleNamespace(
+        snapshot=lambda: SimpleNamespace(active=False)
+    )
+    service._execution_gate.validate = lambda **kwargs: SimpleNamespace(
+        allowed=True,
+        reason="OK",
+    )
+    monkeypatch.setattr(
+        "xau_detective.mt5_demo_service.run_production_preflight",
+        lambda **kwargs: SimpleNamespace(ready=True, reason="OK"),
+    )
+
+    execute_calls = []
+
+    def fail_after_possible_submission(**kwargs):
+        execute_calls.append(True)
+        raise RuntimeError("simulated response loss")
+
+    service._executor.execute = fail_after_possible_submission
+    intent = pending_intent("uncertain-submission-1")
+    profile = TradingProfile(
+        bot_suggestions_enabled=False,
+        auto_execution_enabled=True,
+    )
+    now = datetime(2026, 9, 27, 12, tzinfo=timezone.utc)
+
+    first = service.cycle(
+        profile=profile,
+        d1=candles(),
+        h4=candles(),
+        h1=candles(),
+        m15=candles(),
+        m5=candles(),
+        now=now,
+        idempotency_key=intent.idempotency_key,
+        user_intent=intent,
+    )
+
+    assert first.reason.startswith("EXECUTION_ERROR_UNCERTAIN:")
+    assert journal.latest_for_idempotency_key(
+        intent.idempotency_key
+    ).status == "PENDING_SUBMISSION"
+
+    second = service.cycle(
+        profile=profile,
+        d1=candles(),
+        h4=candles(),
+        h1=candles(),
+        m15=candles(),
+        m5=candles(),
+        now=now,
+        idempotency_key=intent.idempotency_key,
+        user_intent=intent,
+    )
+
+    assert second.reason == "UNRESOLVED_SUBMISSION_REQUIRES_RECONCILIATION"
+    assert execute_calls == [True]
