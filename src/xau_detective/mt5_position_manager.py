@@ -105,17 +105,24 @@ class MT5PositionManager:
         positions_get = getattr(self._mt5, "positions_get", None)
         orders_get = getattr(self._mt5, "orders_get", None)
 
-        raw_positions = positions_get(symbol=self._symbol) if callable(positions_get) else ()
-        raw_orders = orders_get(symbol=self._symbol) if callable(orders_get) else ()
+        if not callable(positions_get) or not callable(orders_get):
+            raise RuntimeError("MT5_LIFECYCLE_API_UNAVAILABLE")
+
+        raw_positions = positions_get(symbol=self._symbol)
+        if raw_positions is None:
+            raise RuntimeError("MT5_POSITIONS_UNAVAILABLE")
+        raw_orders = orders_get(symbol=self._symbol)
+        if raw_orders is None:
+            raise RuntimeError("MT5_ORDERS_UNAVAILABLE")
 
         positions = tuple(
             self._position(item)
-            for item in (raw_positions or ())
+            for item in raw_positions
             if self._matches(item)
         )
         orders = tuple(
             self._order(item)
-            for item in (raw_orders or ())
+            for item in raw_orders
             if self._matches(item)
         )
         return LifecycleSnapshot(positions=positions, orders=orders)
