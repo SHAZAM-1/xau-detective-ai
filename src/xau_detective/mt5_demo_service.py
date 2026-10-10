@@ -71,7 +71,69 @@ class MT5DemoTradingService:
         self._guardian = project_guardian or ProjectGuardian(self._audit)
         self._positions = MT5PositionManager(mt5_module, symbol=symbol, magic=magic)
         self._health = RuntimeHealthTracker()
+        self._persisted_session_identity: tuple[str, str, str] | None = None
         self._session_switch_blocked = False
+        for event in self._audit.events():
+            details = event.details
+            if event.event == "session_identity":
+                self._persisted_session_identity = (
+                    str(details.get("login", "")),
+                    str(details.get("server", "")),
+                    str(details.get("environment", "")),
+                )
+            elif event.event == "session_switch_blocked":
+                self._session_switch_blocked = True
+            elif event.event == "session_switch_acknowledged":
+                self._session_switch_blocked = False
+                self._persisted_session_identity = (
+                    str(details.get("login", "")),
+                    str(details.get("server", "")),
+                    str(details.get("environment", "")),
+                )
+
+    @staticmethod
+    def _identity_key(identity: Any) -> tuple[str, str, str]:
+        return (
+            str(identity.login),
+            str(identity.server),
+            str(identity.environment.value),
+        )
+
+    def acknowledge_session_switch(
+        self,
+        *,
+        expected_login: str,
+        expected_server: str,
+        now: datetime | None = None,
+    ) -> None:
+        """Explicitly acknowledge a verified Demo account after a session switch."""
+        state = self._session.state
+        if state is None:
+            raise ValueError("MT5_SESSION_NOT_ESTABLISHED")
+        identity = state.identity
+        if identity.environment is not TradingEnvironment.DEMO:
+            raise ValueError("DEMO_SESSION_REQUIRED")
+        if identity.login != str(expected_login) or identity.server != expected_server:
+            raise ValueError("SESSION_IDENTITY_MISMATCH")
+
+        timestamp = now or datetime.now(UTC)
+        self._persisted_session_identity = self._identity_key(identity)
+        self._session_switch_blocked = False
+        self._audit.append(
+            AuditEvent(
+                timestamp=timestamp,
+                trace_id=f"session-acknowledgement:{identity.login}:{identity.server}",
+                event="session_switch_acknowledged",
+                status="ACKNOWLEDGED",
+                reason="EXPLICIT_SESSION_SWITCH_ACKNOWLEDGED",
+                symbol=self._symbol,
+                details={
+                    "login": identity.login,
+                    "server": identity.server,
+                    "environment": identity.environment.value,
+                },
+            )
+        )
 
     @property
     def audit_log(self) -> AuditLog:
@@ -369,8 +431,34 @@ class MT5DemoTradingService:
             terminal_trade_allowed=terminal_trade_allowed,
         )
         changed = session_before != state.identity
-        if session_before is not None and changed:
+        current_identity = self._identity_key(state.identity)
+        previous_identity = (
+            self._identity_key(session_before)
+            if session_before is not None
+            else self._persisted_session_identity
+        )
+        identity_changed = (
+            previous_identity is not None and previous_identity != current_identity
+        )
+        if identity_changed:
             self._session_switch_blocked = True
+        elif previous_identity is None:
+            self._persisted_session_identity = current_identity
+            self._audit.append(
+                AuditEvent(
+                    timestamp=now,
+                    trace_id=f"session-binding:{state.identity.login}:{state.identity.server}",
+                    event="session_identity",
+                    status="RECORDED",
+                    reason="INITIAL_SESSION_BINDING",
+                    symbol=self._symbol,
+                    details={
+                        "login": state.identity.login,
+                        "server": state.identity.server,
+                        "environment": state.identity.environment.value,
+                    },
+                )
+            )
 
         if self._session_switch_blocked:
             reason = "MT5_SESSION_CHANGED_EXECUTION_BLOCKED"
@@ -381,8 +469,8 @@ class MT5DemoTradingService:
                 reason=reason,
                 event="session_switch_blocked",
                 details={
-                    "previous_login": session_before.login if session_before else None,
-                    "previous_server": session_before.server if session_before else None,
+                    "previous_login": previous_identity[0] if previous_identity else None,
+                    "previous_server": previous_identity[1] if previous_identity else None,
                     "current_login": state.identity.login,
                     "current_server": state.identity.server,
                     "current_environment": state.identity.environment.value,
