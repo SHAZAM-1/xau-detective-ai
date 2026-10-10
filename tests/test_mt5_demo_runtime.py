@@ -3,6 +3,7 @@ from decimal import Decimal
 
 import pytest
 
+from xau_detective.audit_log import JsonlAuditLog
 from xau_detective.market import Candle
 from xau_detective.mt5_demo_runtime import (
     RuntimeConfig,
@@ -12,6 +13,7 @@ from xau_detective.mt5_demo_runtime import (
     run_once,
 )
 from xau_detective.timeframes import Timeframe
+from xau_detective.trade_journal import JsonlTradeJournal
 
 
 NOW = datetime(2026, 10, 6, 12, 0, tzinfo=UTC)
@@ -202,3 +204,58 @@ def test_fetch_closed_snapshot_rejects_stale_m5_data():
             count=50,
             now=NOW,
         )
+
+
+
+def test_runtime_uses_durable_journal_and_audit_log(monkeypatch, tmp_path):
+    captured = {}
+    shutdown_calls = []
+
+    class FakeMT5:
+        def initialize(self):
+            return True
+
+        def shutdown(self):
+            shutdown_calls.append(True)
+
+    class FakeSource:
+        def __init__(self, mt5_module):
+            pass
+
+        def resolve_symbol(self, symbol):
+            return symbol
+
+        def market_time(self, symbol):
+            return NOW
+
+    def fake_service(mt5_module, **kwargs):
+        captured.update(kwargs)
+        return object()
+
+    def fake_run_once(**kwargs):
+        return NOW, type("Result", (), {"reason": "NO_TRADE"})()
+
+    monkeypatch.setattr(
+        "xau_detective.mt5_demo_runtime.MT5CandleSource",
+        FakeSource,
+    )
+    monkeypatch.setattr(
+        "xau_detective.mt5_demo_runtime.MT5DemoTradingService",
+        fake_service,
+    )
+    monkeypatch.setattr(
+        "xau_detective.mt5_demo_runtime.run_once",
+        fake_run_once,
+    )
+
+    run_demo_runtime(
+        mt5_module=FakeMT5(),
+        config=RuntimeConfig(log_dir=tmp_path),
+        once=True,
+    )
+
+    assert isinstance(captured["journal"], JsonlTradeJournal)
+    assert captured["journal"].path == tmp_path / "trades.jsonl"
+    assert isinstance(captured["audit_log"], JsonlAuditLog)
+    assert captured["audit_log"].path == tmp_path / "audit.jsonl"
+    assert shutdown_calls == [True]
