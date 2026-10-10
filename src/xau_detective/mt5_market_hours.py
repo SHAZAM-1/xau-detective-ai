@@ -1,11 +1,17 @@
-"""Pepperstone Spot Gold session-gap policy for MT5 market data."""
+""""Pepperstone Spot Gold session-gap policy for MT5 market data."""
 from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta
 
 
-_DAILY_CLOSE = time(23, 45)
-_DAILY_OPEN = time(1, 15)
+# Candle timestamps are normalized to UTC by the MT5 adapter. Avoid checking
+# fixed wall-clock hours here: the broker's UTC offset changes with DST.
+_MIN_ROLLOVER_GAP = timedelta(minutes=30)
+_MAX_ROLLOVER_GAP = timedelta(hours=4)
+_MIN_WEEKEND_GAP = timedelta(hours=36)
+_MAX_WEEKEND_GAP = timedelta(hours=80)
+_MIN_HOLIDAY_GAP = timedelta(hours=72)
+_MAX_HOLIDAY_GAP = timedelta(hours=108)
 
 
 def _easter_sunday(year: int) -> date:
@@ -17,7 +23,7 @@ def _easter_sunday(year: int) -> date:
     e = b % 4
     f = (b + 8) // 25
     g = (b - f + 1) // 3
-    h = (19 * a + b - d - g + 15) % 30
+    h = (19 * a + b - d - f + 15) % 30
     i = c // 4
     k = c % 4
     easter_offset = (32 + 2 * e + 2 * i - h - k) % 7
@@ -28,32 +34,47 @@ def _easter_sunday(year: int) -> date:
 
 
 def pepperstone_gold_gap_is_expected(previous: datetime, current: datetime) -> bool:
-    """Allow documented daily rollover, weekend, and Good Friday closures."""
-    if current <= previous:
+    """Recognize bounded rollover/weekend/Good Friday gaps; reject long outages.
+
+    The input timestamps must be timezone-aware and are expected to be UTC
+    normalized. Calendar boundaries alone are insufficient evidence that a
+    data gap is expected, so each accepted closure also has an elapsed-time
+    bound. Actual broker session hours should be validated against MT5 data.
+    """
+    if (
+        previous.tzinfo is None
+        or current.tzinfo is None
+        or current <= previous
+    ):
         return False
 
-    # Friday -> Monday and weekend boundaries are expected closures.
-    if previous.weekday() == 4 and current.weekday() == 0:
+    elapsed = current - previous
+    day_delta = (current.date() - previous.date()).days
+
+    # Normal weekday rollover. Duration-based bounds avoid fixed UTC clock
+    # assumptions and continue to work when the broker's offset changes.
+    if (
+        previous.weekday() in {0, 1, 2, 3}
+        and day_delta == 1
+        and _MIN_ROLLOVER_GAP <= elapsed <= _MAX_ROLLOVER_GAP
+    ):
         return True
-    if previous.weekday() == 5 and current.weekday() == 0:
-        return True
-    if previous.weekday() == 6 and current.weekday() == 0:
+
+    # Friday -> Monday weekend closure, limited to a plausible weekend span.
+    if (
+        previous.weekday() == 4
+        and current.weekday() == 0
+        and day_delta == 3
+        and _MIN_WEEKEND_GAP <= elapsed <= _MAX_WEEKEND_GAP
+    ):
         return True
 
     # Good Friday removes the Friday daily candle, creating a Thursday -> Monday gap.
     good_friday = _easter_sunday(previous.year) - timedelta(days=2)
-    if (
+    return (
         previous.date() == good_friday - timedelta(days=1)
         and current.date() == good_friday + timedelta(days=3)
         and current.weekday() == 0
-    ):
-        return True
-
-    # Monday-Thursday: Gold closes near 23:59 server time and reopens near 01:01.
-    next_day = previous.date() + timedelta(days=1)
-    return (
-        previous.weekday() in {0, 1, 2, 3}
-        and current.date() == next_day
-        and previous.time() >= _DAILY_CLOSE
-        and current.time() <= _DAILY_OPEN
+        and day_delta == 4
+        and _MIN_HOLIDAY_GAP <= elapsed <= _MAX_HOLIDAY_GAP
     )
