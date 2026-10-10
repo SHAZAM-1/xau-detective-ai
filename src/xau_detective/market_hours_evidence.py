@@ -57,6 +57,17 @@ _TIMEFRAME_CONSTANTS = (
     (Timeframe.M5, "TIMEFRAME_M5"),
 )
 
+# Minimum sample sizes prevent an almost-empty historical response from being
+# mistaken for valid session/DST evidence. These are evidence sufficiency floors,
+# not assumptions about how many candles should exist in every market window.
+_MIN_CANDLES_FOR_EVIDENCE = {
+    Timeframe.D1: 2,
+    Timeframe.H4: 3,
+    Timeframe.H1: 10,
+    Timeframe.M15: 30,
+    Timeframe.M5: 100,
+}
+
 
 def resolve_symbol_read_only(mt5: Any, requested: str) -> str:
     """Resolve an exact/suffixed symbol without changing Market Watch state."""
@@ -90,6 +101,8 @@ def collect_market_hours_evidence(mt5: Any, symbol: str) -> dict[str, Any]:
         "symbol": symbol,
         "read_only": True,
         "account_mode": "DEMO",
+        "complete": True,
+        "quality_warnings": [],
         "windows": {},
     }
 
@@ -128,15 +141,25 @@ def collect_market_hours_evidence(mt5: Any, symbol: str) -> dict[str, Any]:
                         }
                     )
 
+            minimum_count = _MIN_CANDLES_FOR_EVIDENCE[timeframe]
+            sufficient = len(timestamps) >= minimum_count
             item: dict[str, Any] = {
                 "start_utc": start.isoformat(),
                 "end_utc": end.isoformat(),
                 "candle_count": len(timestamps),
+                "minimum_candles_for_evidence": minimum_count,
+                "evidence_sufficient": sufficient,
                 "first_open_utc": timestamps[0].isoformat() if timestamps else None,
                 "last_open_utc": timestamps[-1].isoformat() if timestamps else None,
                 "gaps_over_two_intervals": gaps,
                 "duplicate_opens_utc": duplicates,
             }
+            if not sufficient:
+                evidence["complete"] = False
+                evidence["quality_warnings"].append(
+                    f"INSUFFICIENT_CANDLES:{label}:{timeframe.value}:"
+                    f"{len(timestamps)}<{minimum_count}"
+                )
             if timeframe is Timeframe.D1:
                 offsets = []
                 for timestamp in timestamps:
