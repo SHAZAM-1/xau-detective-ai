@@ -153,3 +153,15 @@ def test_gate_rejects_non_finite_account_margin_without_raising():
         symbol_info=symbol(), intent=intent(),
     )
     assert result.reason == "INVALID_EXECUTION_NUMERIC_VALUE"
+
+
+def test_gate_rejects_non_finite_margin_calculation_output():
+    class InvalidMargin(FakeMT5):
+        def order_calc_margin(self, action, symbol, volume, price):
+            return float("nan")
+
+    result = BrokerExecutionGate().validate(
+        mt5=InvalidMargin(), capabilities=capabilities(), account_info=account(),
+        symbol_info=symbol(), intent=intent(),
+    )
+    assert result.reason == "MARGIN_CALCULATION_FAILED"
