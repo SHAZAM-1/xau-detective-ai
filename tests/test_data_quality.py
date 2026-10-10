@@ -115,3 +115,31 @@ def test_invalid_candle_timestamp_type_is_rejected():
     result = validate_candles((candle,))
     assert not result.usable
     assert "INVALID_TIMESTAMP" in result.reasons
+
+
+
+def test_non_finite_candle_price_is_rejected():
+    candle = Candle(
+        datetime(2026, 10, 6, 10, 0, tzinfo=UTC),
+        Decimal("NaN"),
+        Decimal(2),
+        Decimal("0.5"),
+        Decimal("1.5"),
+    )
+    result = validate_candles((candle,))
+    assert not result.usable
+    assert "NON_FINITE_PRICE" in result.reasons
+
+
+def test_infinite_candle_volume_is_rejected():
+    candle = Candle(
+        datetime(2026, 10, 6, 10, 0, tzinfo=UTC),
+        Decimal(1),
+        Decimal(2),
+        Decimal("0.5"),
+        Decimal("1.5"),
+        Decimal("Infinity"),
+    )
+    result = validate_candles((candle,))
+    assert not result.usable
+    assert "NON_FINITE_VOLUME" in result.reasons
