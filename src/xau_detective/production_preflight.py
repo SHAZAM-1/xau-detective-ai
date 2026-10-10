@@ -7,7 +7,7 @@ allowed to consume the snapshot.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 from .broker import validate_broker_spec
@@ -17,6 +17,15 @@ from .models import AccountSnapshot, BrokerSpec, ExecutionSnapshot
 from .mt5_market_hours import pepperstone_gold_gap_is_expected
 from .timeframes import Timeframe, expected_interval
 from .trading_profile import TradingProfile
+
+
+_MAX_STALENESS_BY_TIMEFRAME = {
+    Timeframe.D1: timedelta(days=4),
+    Timeframe.H4: timedelta(hours=16),
+    Timeframe.H1: timedelta(hours=4),
+    Timeframe.M15: timedelta(hours=1),
+    Timeframe.M5: timedelta(minutes=20),
+}
 
 
 @dataclass(frozen=True)
@@ -59,6 +68,8 @@ def _validate_series(
             now_utc = now.astimezone(UTC)
             if latest_utc + expected_interval(timeframe) > now_utc:
                 reasons.append(f"{name}_LATEST_CANDLE_NOT_CLOSED")
+            if now_utc - latest_utc > _MAX_STALENESS_BY_TIMEFRAME[timeframe]:
+                reasons.append(f"{name}_STALE_DATA")
     return reasons
 
 
