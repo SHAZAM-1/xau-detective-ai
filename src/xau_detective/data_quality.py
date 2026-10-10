@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta
 from itertools import pairwise
 from typing import Callable
 
@@ -27,6 +27,11 @@ def validate_candles(
     if not candles:
         return DataQuality(False, ("NO_CANDLES",))
     reasons: list[str] = []
+    for candle in candles:
+        if not isinstance(candle.timestamp, datetime):
+            return DataQuality(False, ("INVALID_TIMESTAMP",))
+        if candle.timestamp.tzinfo is None or candle.timestamp.utcoffset() is None:
+            return DataQuality(False, ("NAIVE_TIMESTAMP",))
     for previous, current in pairwise(candles):
         if current.timestamp <= previous.timestamp:
             reasons.append("NON_MONOTONIC_TIMESTAMPS")
