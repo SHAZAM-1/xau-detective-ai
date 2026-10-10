@@ -85,17 +85,18 @@ class MetaTrader5DemoGateway:
     def _send(self, intent: TradeIntent) -> MT5OrderResponse:
         request = self.build_request(intent)
         order_check = getattr(self._mt5, "order_check", None)
-        if callable(order_check):
-            check = order_check(request)
-            if check is None:
-                raise RuntimeError("MT5_ORDER_CHECK_RETURNED_NONE")
-            check_retcode = int(getattr(check, "retcode", -1))
-            check_done = getattr(self._mt5, "TRADE_RETCODE_DONE", 10009)
-            if check_retcode not in {int(check_done), 0}:
-                comment = str(getattr(check, "comment", "MT5_ORDER_CHECK_REJECTED"))
-                raise RuntimeError(
-                    f"MT5_ORDER_CHECK_REJECTED:{check_retcode}:{comment}"
-                )
+        if not callable(order_check):
+            raise RuntimeError("MT5_ORDER_CHECK_UNAVAILABLE")
+        check = order_check(request)
+        if check is None:
+            raise RuntimeError("MT5_ORDER_CHECK_RETURNED_NONE")
+        check_retcode = int(getattr(check, "retcode", -1))
+        check_done = getattr(self._mt5, "TRADE_RETCODE_DONE", 10009)
+        if check_retcode not in {int(check_done), 0}:
+            comment = str(getattr(check, "comment", "MT5_ORDER_CHECK_REJECTED"))
+            raise RuntimeError(
+                f"MT5_ORDER_CHECK_REJECTED:{check_retcode}:{comment}"
+            )
 
         result = self._mt5.order_send(request)
         if result is None:
