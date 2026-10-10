@@ -49,3 +49,9 @@ def test_good_friday_dates_do_not_whitelist_unbounded_gap():
     previous = datetime(2026, 4, 2, tzinfo=UTC)
     current = datetime(2026, 4, 6, 13, tzinfo=UTC)
     assert not pepperstone_gold_gap_is_expected(previous, current)
+
+
+def test_good_friday_gap_is_expected_for_another_easter_year():
+    previous = datetime(2025, 4, 17, tzinfo=UTC)
+    current = datetime(2025, 4, 21, tzinfo=UTC)
+    assert pepperstone_gold_gap_is_expected(previous, current)
