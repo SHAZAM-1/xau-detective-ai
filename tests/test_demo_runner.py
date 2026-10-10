@@ -80,7 +80,7 @@ def test_demo_runner_passes_pepperstone_gap_policy_to_pipeline(monkeypatch):
     captured = {}
 
     def fake_analyze_market(**kwargs):
-        captured["gap_is_expected"] = kwargs["gap_is_expected"]
+        captured["gap_is_expected_for_timeframe"] = kwargs["gap_is_expected_for_timeframe"]
         return SimpleNamespace(
             decision=SimpleNamespace(direction=Direction.NO_TRADE, risk=None, reason="NO_TRADE"),
             session="NEW_YORK",
@@ -99,5 +99,5 @@ def test_demo_runner_passes_pepperstone_gap_policy_to_pipeline(monkeypatch):
 
     from xau_detective.mt5_market_hours import pepperstone_gold_gap_is_expected
 
-    assert captured["gap_is_expected"] is pepperstone_gold_gap_is_expected
+    assert captured["gap_is_expected_for_timeframe"] is pepperstone_gold_gap_is_expected
     assert result.reason == "NO_TRADE"
