@@ -578,11 +578,30 @@ class MT5DemoTradingService:
             return self._finish(trace_id=idempotency_key, now=now, result=DemoCycleResult(changed, analysis, None, gate.reason))
 
         previous = self._journal.latest_for_idempotency_key(intent.idempotency_key)
-        if previous is not None and previous.status in {"SUBMITTED", "PENDING_SUBMISSION"}:
-            reason = "UNRESOLVED_SUBMISSION_REQUIRES_RECONCILIATION"
+        if previous is not None:
+            if previous.status in {
+                "PENDING_SUBMISSION",
+                "SUBMITTED",
+                "RECOVERY_REQUIRED",
+            }:
+                reason = "UNRESOLVED_SUBMISSION_REQUIRES_RECONCILIATION"
+            else:
+                # One idempotency key represents one execution attempt for one
+                # closed candle, even if a prior order was later closed/rejected.
+                reason = "IDEMPOTENCY_KEY_ALREADY_USED"
             self._health.rejected(reason)
-            self._audit_rejection(trace_id=idempotency_key, now=now, reason=reason, event="idempotency_rejection")
-            return self._finish(trace_id=idempotency_key, now=now, result=DemoCycleResult(changed, analysis, None, reason))
+            self._audit_rejection(
+                trace_id=idempotency_key,
+                now=now,
+                reason=reason,
+                event="idempotency_rejection",
+                details={"previous_status": previous.status},
+            )
+            return self._finish(
+                trace_id=idempotency_key,
+                now=now,
+                result=DemoCycleResult(changed, analysis, None, reason),
+            )
 
         self._journal.append(
             journal_entry_from_intent(
