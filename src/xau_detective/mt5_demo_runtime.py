@@ -23,11 +23,11 @@ from .trading_profile import TradingProfile
 
 TIMEFRAMES = (Timeframe.D1, Timeframe.H4, Timeframe.H1, Timeframe.M15, Timeframe.M5)
 MAX_STALENESS_BY_TIMEFRAME = {
-    Timeframe.D1: timedelta(days=3),
-    Timeframe.H4: timedelta(hours=8),
-    Timeframe.H1: timedelta(hours=2),
-    Timeframe.M15: timedelta(minutes=30),
-    Timeframe.M5: timedelta(minutes=10),
+    Timeframe.D1: timedelta(days=4),
+    Timeframe.H4: timedelta(hours=16),
+    Timeframe.H1: timedelta(hours=4),
+    Timeframe.M15: timedelta(hours=1),
+    Timeframe.M5: timedelta(minutes=20),
 }
 
 
