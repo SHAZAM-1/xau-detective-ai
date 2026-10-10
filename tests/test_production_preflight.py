@@ -80,6 +80,7 @@ def test_production_preflight_accepts_valid_demo_snapshot():
 
 def test_production_preflight_accepts_expected_good_friday_d1_gap():
     now, capabilities, account, broker, execution = _inputs()
+    now = datetime(2026, 4, 9, 12, tzinfo=UTC)
     d1 = (
         _candle(datetime(2026, 3, 30, tzinfo=UTC)),
         _candle(datetime(2026, 3, 31, tzinfo=UTC)),
@@ -173,3 +174,24 @@ def test_production_preflight_rejects_still_forming_candle_before_close_time():
     )
     assert not result.ready
     assert "M5_LATEST_CANDLE_NOT_CLOSED" in result.reasons
+
+
+
+def test_production_preflight_rejects_stale_m5_snapshot():
+    now, capabilities, account, broker, execution = _inputs()
+    stale_m5 = _series(now - timedelta(hours=2), timedelta(minutes=5))
+    result = run_production_preflight(
+        capabilities=capabilities,
+        account=account,
+        broker=broker,
+        execution=execution,
+        profile=TradingProfile(),
+        d1=_series(now - timedelta(days=20), timedelta(days=1)),
+        h4=_series(now - timedelta(hours=80), timedelta(hours=4)),
+        h1=_series(now - timedelta(hours=20), timedelta(hours=1)),
+        m15=_series(now - timedelta(hours=5), timedelta(minutes=15)),
+        m5=stale_m5,
+        now=now,
+    )
+    assert not result.ready
+    assert "M5_STALE_DATA" in result.reasons
