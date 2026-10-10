@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
@@ -87,3 +87,27 @@ class AmbiguousSymbolMT5(SymbolMT5):
 def test_mt5_source_rejects_ambiguous_symbol_suffix():
     with pytest.raises(RuntimeError, match="MT5_SYMBOL_AMBIGUOUS"):
         MT5CandleSource(AmbiguousSymbolMT5()).resolve_symbol("XAUUSD")
+
+
+
+class LatestDailyCandleMT5(FakeMT5):
+    def copy_rates_from_pos(self, symbol, timeframe, start, count):
+        assert symbol == "XAUUSD"
+        assert timeframe == self.TIMEFRAME_D1
+        assert start == 0
+        assert count == 1
+        return [
+            {
+                "time": int(datetime(2026, 10, 5, 21, tzinfo=UTC).timestamp()),
+                "open": 4000,
+                "high": 4010,
+                "low": 3990,
+                "close": 4005,
+                "tick_volume": 100,
+            }
+        ]
+
+
+def test_broker_offset_uses_latest_daily_open_near_dst_transition():
+    source = MT5CandleSource(LatestDailyCandleMT5())
+    assert source.broker_offset("XAUUSD") == timedelta(hours=3)
