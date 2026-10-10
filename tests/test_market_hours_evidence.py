@@ -5,6 +5,7 @@ import pytest
 
 from xau_detective.market_hours_evidence import (
     collect_market_hours_evidence,
+    is_explicit_demo_account,
     resolve_symbol_read_only,
 )
 
@@ -121,3 +122,16 @@ def test_market_hours_evidence_flags_insufficient_historical_samples():
     assert thin_window["evidence_sufficient"] is False
     assert thin_window["candle_count"] == 1
     assert thin_window["minimum_candles_for_evidence"] == 100
+
+
+def test_demo_account_check_requires_explicit_mt5_demo_constant():
+    account = SimpleNamespace(trade_mode=0)
+    assert not is_explicit_demo_account(SimpleNamespace(), account)
+    assert not is_explicit_demo_account(
+        SimpleNamespace(ACCOUNT_TRADE_MODE_DEMO=0),
+        SimpleNamespace(trade_mode=1),
+    )
+    assert is_explicit_demo_account(
+        SimpleNamespace(ACCOUNT_TRADE_MODE_DEMO=0),
+        account,
+    )

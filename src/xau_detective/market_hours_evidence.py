@@ -94,6 +94,12 @@ def resolve_symbol_read_only(mt5: Any, requested: str) -> str:
     return candidates[0]
 
 
+def is_explicit_demo_account(mt5: Any, account: Any) -> bool:
+    """Require an explicit MT5 Demo constant and an exact account-mode match."""
+    demo_mode = getattr(mt5, "ACCOUNT_TRADE_MODE_DEMO", None)
+    return demo_mode is not None and getattr(account, "trade_mode", None) == demo_mode
+
+
 def collect_market_hours_evidence(mt5: Any, symbol: str) -> dict[str, Any]:
     """Return observed candle-open timestamps and gaps without trade actions."""
     evidence: dict[str, Any] = {
@@ -210,8 +216,7 @@ def main(argv: list[str] | None = None) -> int:
         account = mt5.account_info()
         if account is None:
             raise RuntimeError("MT5_ACCOUNT_INFO_UNAVAILABLE")
-        demo_mode = getattr(mt5, "ACCOUNT_TRADE_MODE_DEMO", 0)
-        if getattr(account, "trade_mode", None) != demo_mode:
+        if not is_explicit_demo_account(mt5, account):
             raise RuntimeError("DEMO_ACCOUNT_REQUIRED_FOR_READ_ONLY_EVIDENCE")
 
         symbol = resolve_symbol_read_only(mt5, args.symbol)
