@@ -101,6 +101,11 @@ class AdaptiveRuntimeAgent:
             "DATA_",
         )
         for event in recent:
+            # A deliberate account-switch lock is a policy hold, not a
+            # recurring infrastructure failure; it remains blocked until
+            # explicit acknowledgement and must not poison the post-ack guard.
+            if event.reason == "MT5_SESSION_CHANGED_EXECUTION_BLOCKED":
+                continue
             if (
                 event.status in {"BLOCKED", "REJECTED"}
                 and event.reason
