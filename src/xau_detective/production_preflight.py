@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from .broker import validate_broker_spec
 from .data_quality import validate_candles
@@ -92,8 +92,28 @@ def run_production_preflight(
 
     try:
         profile.validate()
-    except ValueError as exc:
-        reasons.append(f"INVALID_TRADING_PROFILE:{exc}")
+    except (AttributeError, TypeError, ValueError) as exc:
+        return PreflightResult(False, (f"INVALID_TRADING_PROFILE:{exc}",))
+
+    # This boundary must not let Decimal NaN/Infinity or malformed external
+    # values reach comparisons below. Return a deterministic rejection instead
+    # of allowing Decimal.InvalidOperation to escape or comparisons to mislead.
+    try:
+        numeric_inputs = tuple(
+            Decimal(str(value))
+            for value in (
+                account.balance,
+                account.equity,
+                account.free_margin,
+                execution.bid,
+                execution.ask,
+                execution.estimated_slippage,
+            )
+        )
+    except (InvalidOperation, TypeError, ValueError):
+        return PreflightResult(False, ("INVALID_NUMERIC_INPUT",))
+    if any(not value.is_finite() for value in numeric_inputs):
+        return PreflightResult(False, ("NON_FINITE_NUMERIC_INPUT",))
 
     if capabilities.environment is not TradingEnvironment.DEMO:
         reasons.append("DEMO_ENVIRONMENT_REQUIRED")
@@ -128,7 +148,7 @@ def run_production_preflight(
     if profile.max_slippage is not None and execution.estimated_slippage > profile.max_slippage:
         reasons.append("SLIPPAGE_ABOVE_PROFILE_LIMIT")
 
-    if now.tzinfo is None:
+    if now.tzinfo is None or now.utcoffset() is None:
         reasons.append("PREFLIGHT_TIME_NOT_TIMEZONE_AWARE")
 
     series = (
