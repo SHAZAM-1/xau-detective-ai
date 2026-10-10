@@ -13,7 +13,6 @@ from typing import Any
 
 from .broker_clock import infer_broker_offset
 from .mt5_adapter import candle_from_mt5
-from .mt5_source import MT5CandleSource
 from .timeframes import Timeframe, expected_interval
 
 
@@ -57,6 +56,31 @@ _TIMEFRAME_CONSTANTS = (
     (Timeframe.M15, "TIMEFRAME_M15"),
     (Timeframe.M5, "TIMEFRAME_M5"),
 )
+
+
+def resolve_symbol_read_only(mt5: Any, requested: str) -> str:
+    """Resolve an exact/suffixed symbol without changing Market Watch state."""
+    if not requested:
+        raise ValueError("SYMBOL_REQUIRED")
+    if mt5.symbol_info(requested) is not None:
+        return requested
+
+    symbols_get = getattr(mt5, "symbols_get", None)
+    if not callable(symbols_get):
+        raise RuntimeError(f"MT5_SYMBOL_NOT_FOUND:{requested}")
+    candidates = sorted(
+        {
+            str(getattr(item, "name", ""))
+            for item in (symbols_get() or ())
+            if str(getattr(item, "name", "")).startswith(
+                (requested + ".", requested + "#")
+            )
+        }
+    )
+    if len(candidates) != 1:
+        reason = "AMBIGUOUS" if candidates else "NOT_FOUND"
+        raise RuntimeError(f"MT5_SYMBOL_{reason}:{requested}:{candidates}")
+    return candidates[0]
 
 
 def collect_market_hours_evidence(mt5: Any, symbol: str) -> dict[str, Any]:
@@ -167,8 +191,7 @@ def main(argv: list[str] | None = None) -> int:
         if getattr(account, "trade_mode", None) != demo_mode:
             raise RuntimeError("DEMO_ACCOUNT_REQUIRED_FOR_READ_ONLY_EVIDENCE")
 
-        source = MT5CandleSource(mt5)
-        symbol = source.resolve_symbol(args.symbol)
+        symbol = resolve_symbol_read_only(mt5, args.symbol)
         evidence = collect_market_hours_evidence(mt5, symbol)
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(
