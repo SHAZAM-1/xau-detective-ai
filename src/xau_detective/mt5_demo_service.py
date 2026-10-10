@@ -615,18 +615,31 @@ class MT5DemoTradingService:
                 intent=intent,
             )
         except Exception as exc:
-            reason = f"EXECUTION_ERROR:{type(exc).__name__}:{exc}"
+            # order_send may have reached the broker before the response failed.
+            # Keep the durable pending state so a restart cannot blindly retry
+            # the same candle; recovery must reconcile broker state first.
+            reason = f"EXECUTION_ERROR_UNCERTAIN:{type(exc).__name__}:{exc}"
             self._journal.append(
                 journal_entry_from_intent(
                     intent=intent,
-                    status="ERROR",
+                    status="PENDING_SUBMISSION",
                     reason=reason,
                     timestamp=now,
                 )
             )
             self._health.errored(reason)
-            self._audit_rejection(trace_id=idempotency_key, now=now, reason=reason, event="execution_failure")
-            return self._finish(trace_id=idempotency_key, now=now, result=DemoCycleResult(changed, analysis, None, reason))
+            self._audit_rejection(
+                trace_id=idempotency_key,
+                now=now,
+                reason=reason,
+                event="execution_failure",
+                details={"submission_state": "UNCERTAIN"},
+            )
+            return self._finish(
+                trace_id=idempotency_key,
+                now=now,
+                result=DemoCycleResult(changed, analysis, None, reason),
+            )
         self._journal.append(
             journal_entry_from_intent(
                 intent=intent,
