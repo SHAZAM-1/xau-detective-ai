@@ -320,7 +320,7 @@ def test_runtime_config_rejects_malformed_or_non_finite_risk_fraction(risk_fract
         RuntimeConfig(risk_fraction=risk_fraction).validate()
 
 
-@pytest.mark.parametrize("poll_seconds", ["invalid", float("nan"), float("inf"), 0, -1])
+@pytest.mark.parametrize("poll_seconds", ["invalid", "5", True, float("nan"), float("inf"), 0, -1])
 def test_runtime_config_rejects_malformed_or_non_positive_poll_interval(poll_seconds):
     with pytest.raises(ValueError, match="POLL_SECONDS_MUST_BE_POSITIVE"):
         RuntimeConfig(poll_seconds=poll_seconds).validate()
