@@ -205,3 +205,33 @@ def test_gate_rejects_unknown_symbol_trade_mode():
         symbol_info=s, intent=intent(),
     )
     assert result.reason == "UNSUPPORTED_SYMBOL_TRADE_MODE"
+
+
+def test_gate_fails_closed_when_symbol_order_mode_is_missing():
+    s = symbol()
+    del s.order_mode
+    result = BrokerExecutionGate().validate(
+        mt5=FakeMT5(), capabilities=capabilities(), account_info=account(),
+        symbol_info=s, intent=intent(),
+    )
+    assert result.reason == "SYMBOL_ORDER_MODE_UNAVAILABLE"
+
+
+def test_gate_rejects_malformed_symbol_order_mode():
+    s = symbol()
+    s.order_mode = float("nan")
+    result = BrokerExecutionGate().validate(
+        mt5=FakeMT5(), capabilities=capabilities(), account_info=account(),
+        symbol_info=s, intent=intent(),
+    )
+    assert result.reason == "INVALID_SYMBOL_ORDER_MODE"
+
+
+def test_gate_rejects_symbol_without_market_order_permission():
+    s = symbol()
+    s.order_mode = 2
+    result = BrokerExecutionGate().validate(
+        mt5=FakeMT5(), capabilities=capabilities(), account_info=account(),
+        symbol_info=s, intent=intent(),
+    )
+    assert result.reason == "MARKET_ORDERS_NOT_ALLOWED"
