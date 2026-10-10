@@ -123,3 +123,33 @@ def test_gate_rejects_without_explicit_execution_opt_in():
         mt5=FakeMT5(), capabilities=caps, account_info=account(), symbol_info=symbol(), intent=intent(),
     )
     assert result.reason == "DEMO_EXECUTION_NOT_ENABLED"
+
+
+def test_gate_rejects_non_finite_trade_intent_values_without_raising():
+    invalid = TradeIntent(
+        **{**intent().__dict__, "volume": Decimal("NaN")}
+    )
+    result = BrokerExecutionGate().validate(
+        mt5=FakeMT5(), capabilities=capabilities(), account_info=account(),
+        symbol_info=symbol(), intent=invalid,
+    )
+    assert result.reason == "INVALID_EXECUTION_NUMERIC_VALUE"
+
+
+def test_gate_rejects_non_finite_broker_prices_without_raising():
+    s = symbol()
+    s.ask = float("inf")
+    result = BrokerExecutionGate().validate(
+        mt5=FakeMT5(), capabilities=capabilities(), account_info=account(),
+        symbol_info=s, intent=intent(),
+    )
+    assert result.reason == "INVALID_EXECUTION_NUMERIC_VALUE"
+
+
+def test_gate_rejects_non_finite_account_margin_without_raising():
+    a = SimpleNamespace(margin_free=float("nan"))
+    result = BrokerExecutionGate().validate(
+        mt5=FakeMT5(), capabilities=capabilities(), account_info=a,
+        symbol_info=symbol(), intent=intent(),
+    )
+    assert result.reason == "INVALID_EXECUTION_NUMERIC_VALUE"
