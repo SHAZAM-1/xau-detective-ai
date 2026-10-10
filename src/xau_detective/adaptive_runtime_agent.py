@@ -267,5 +267,6 @@ class AdaptiveRuntimeAgent:
     def is_strategy_change(action: str) -> bool:
         if not isinstance(action, str):
             return False
-        normalized = "".join(action.split()).upper()
-        return normalized in FORBIDDEN_ADAPTATIONS
+        normalized = "".join(action.split()).replace("_", "").upper()
+        forbidden = {item.replace("_", "") for item in FORBIDDEN_ADAPTATIONS}
+        return normalized in forbidden
