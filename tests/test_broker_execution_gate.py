@@ -165,3 +165,43 @@ def test_gate_rejects_non_finite_margin_calculation_output():
         symbol_info=symbol(), intent=intent(),
     )
     assert result.reason == "MARGIN_CALCULATION_FAILED"
+
+
+def test_gate_rejects_close_only_symbol_mode():
+    s = symbol()
+    s.trade_mode = 3
+    result = BrokerExecutionGate().validate(
+        mt5=FakeMT5(), capabilities=capabilities(), account_info=account(),
+        symbol_info=s, intent=intent(),
+    )
+    assert result.reason == "SYMBOL_CLOSE_ONLY"
+
+
+def test_gate_rejects_sell_when_symbol_is_long_only():
+    s = symbol()
+    s.trade_mode = 1
+    result = BrokerExecutionGate().validate(
+        mt5=FakeMT5(), capabilities=capabilities(), account_info=account(),
+        symbol_info=s, intent=intent(Direction.SELL),
+    )
+    assert result.reason == "SYMBOL_DIRECTION_NOT_ALLOWED"
+
+
+def test_gate_rejects_buy_when_symbol_is_short_only():
+    s = symbol()
+    s.trade_mode = 2
+    result = BrokerExecutionGate().validate(
+        mt5=FakeMT5(), capabilities=capabilities(), account_info=account(),
+        symbol_info=s, intent=intent(Direction.BUY),
+    )
+    assert result.reason == "SYMBOL_DIRECTION_NOT_ALLOWED"
+
+
+def test_gate_rejects_unknown_symbol_trade_mode():
+    s = symbol()
+    s.trade_mode = 99
+    result = BrokerExecutionGate().validate(
+        mt5=FakeMT5(), capabilities=capabilities(), account_info=account(),
+        symbol_info=s, intent=intent(),
+    )
+    assert result.reason == "UNSUPPORTED_SYMBOL_TRADE_MODE"
