@@ -101,9 +101,25 @@ class BrokerExecutionGate:
         if trade_mode == 2 and intent.direction is Direction.BUY:
             return ExecutionGateResult(False, "SYMBOL_DIRECTION_NOT_ALLOWED")
 
-        order_mode = getattr(symbol_info, "order_mode", None)
-        market_flag = getattr(mt5, "SYMBOL_ORDER_MARKET", 1)
-        if order_mode is not None and not (int(order_mode) & int(market_flag)):
+        raw_order_mode = getattr(symbol_info, "order_mode", None)
+        raw_market_flag = getattr(mt5, "SYMBOL_ORDER_MARKET", None)
+        try:
+            order_mode_value = Decimal(str(raw_order_mode))
+            market_flag_value = Decimal(str(raw_market_flag))
+        except (InvalidOperation, TypeError, ValueError):
+            return ExecutionGateResult(False, "SYMBOL_ORDER_MODE_UNAVAILABLE")
+        if (
+            not order_mode_value.is_finite()
+            or order_mode_value != order_mode_value.to_integral_value()
+            or order_mode_value < 0
+            or not market_flag_value.is_finite()
+            or market_flag_value != market_flag_value.to_integral_value()
+            or market_flag_value <= 0
+        ):
+            return ExecutionGateResult(False, "INVALID_SYMBOL_ORDER_MODE")
+        order_mode = int(order_mode_value)
+        market_flag = int(market_flag_value)
+        if not (order_mode & market_flag):
             return ExecutionGateResult(False, "MARKET_ORDERS_NOT_ALLOWED")
 
         volume = intent.volume
