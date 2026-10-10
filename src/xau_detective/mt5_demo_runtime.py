@@ -11,13 +11,16 @@ import time
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from pathlib import Path
 from typing import Any, Protocol
 
+from .audit_log import JsonlAuditLog
 from .ingestion import load_multi_timeframe
 from .mt5_demo_service import DemoCycleResult, MT5DemoTradingService
 from .mt5_market_hours import pepperstone_gold_gap_is_expected
 from .mt5_source import MT5CandleSource
 from .timeframes import Timeframe
+from .trade_journal import JsonlTradeJournal
 from .trading_profile import TradingProfile
 
 
@@ -54,6 +57,7 @@ class RuntimeConfig:
     execution_enabled: bool = False
     auto_execution_enabled: bool = False
     risk_fraction: Decimal = Decimal("0.01")
+    log_dir: Path = Path("var/xau-detective-ai")
 
     def validate(self) -> None:
         if not self.symbol:
@@ -171,10 +175,16 @@ def run_demo_runtime(
     try:
         source = MT5CandleSource(mt5_module)
         resolved_symbol = source.resolve_symbol(config.symbol)
+        # Persist audit and trade state across restarts. Corrupt journals raise
+        # here and fail closed instead of silently falling back to memory.
+        journal = JsonlTradeJournal(config.log_dir / "trades.jsonl")
+        audit_log = JsonlAuditLog(config.log_dir / "audit.jsonl")
         service = MT5DemoTradingService(
             mt5_module,
             symbol=resolved_symbol,
             execution_enabled=config.execution_enabled,
+            journal=journal,
+            audit_log=audit_log,
         )
         last_closed_m5: datetime | None = None
 
@@ -218,6 +228,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--candle-count", type=int, default=300)
     parser.add_argument("--poll-seconds", type=float, default=5.0)
     parser.add_argument("--risk-fraction", type=Decimal, default=Decimal("0.01"))
+    parser.add_argument("--log-dir", type=Path, default=Path("var/xau-detective-ai"))
     parser.add_argument(
         "--once",
         action="store_true",
@@ -243,6 +254,7 @@ def main(argv: list[str] | None = None) -> int:
         execution_enabled=args.execute_demo,
         auto_execution_enabled=args.execute_demo,
         risk_fraction=args.risk_fraction,
+        log_dir=args.log_dir,
     )
 
     import MetaTrader5 as mt5
