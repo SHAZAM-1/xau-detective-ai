@@ -3,7 +3,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from xau_detective.market_hours_evidence import (\n    collect_market_hours_evidence,\n    resolve_symbol_read_only,\n)
+from xau_detective.market_hours_evidence import (
+    collect_market_hours_evidence,
+    resolve_symbol_read_only,
+)
 
 
 def _rate(timestamp):
