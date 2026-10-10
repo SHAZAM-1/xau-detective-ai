@@ -329,3 +329,9 @@ def test_runtime_config_rejects_malformed_or_non_positive_poll_interval(poll_sec
 def test_build_profile_normalizes_valid_numeric_risk_fraction():
     profile = build_profile(RuntimeConfig(risk_fraction="0.02"))
     assert profile.risk_fraction == Decimal("0.02")
+
+
+@pytest.mark.parametrize("flag", ["execution_enabled", "auto_execution_enabled"])
+def test_runtime_config_rejects_non_boolean_execution_gates(flag):
+    with pytest.raises(ValueError, match="EXECUTION_GATES_MUST_MATCH"):
+        RuntimeConfig(**{flag: "false", **({"auto_execution_enabled": "false"} if flag == "execution_enabled" else {})}).validate()

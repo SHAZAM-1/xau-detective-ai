@@ -56,6 +56,8 @@ class MT5DemoTradingService:
         adaptive_agent: AdaptiveRuntimeAgent | None = None,
         project_guardian: ProjectGuardian | None = None,
     ) -> None:
+        if type(execution_enabled) is not bool:
+            raise ValueError("EXECUTION_ENABLED_MUST_BE_BOOLEAN")
         self._mt5 = mt5_module
         self._symbol = symbol
         self._execution_enabled = execution_enabled

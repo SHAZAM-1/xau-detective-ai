@@ -112,3 +112,16 @@ def test_runtime_rejects_timezone_object_without_utc_offset(
 
     assert cycle_calls == []
     assert shutdown_calls == [True]
+
+
+@pytest.mark.parametrize("field", ["risk_fraction", "min_reward_risk", "stop_atr_multiple", "max_spread", "max_slippage"])
+@pytest.mark.parametrize("value", ["0.01", 0.01, 1])
+def test_profile_rejects_non_decimal_numeric_types(field, value):
+    with pytest.raises(ValueError, match=field):
+        TradingProfile(**{field: value}).validate()
+
+
+@pytest.mark.parametrize("field", ["bot_suggestions_enabled", "auto_analysis_enabled", "auto_execution_enabled"])
+def test_profile_rejects_non_boolean_control_flags(field):
+    with pytest.raises(ValueError, match=f"{field} must be boolean"):
+        TradingProfile(**{field: "false"}).validate()

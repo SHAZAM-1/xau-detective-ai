@@ -30,12 +30,19 @@ class TradingProfile:
         for name, value in numeric_values:
             if value is None:
                 continue
-            try:
-                finite = Decimal(str(value)).is_finite()
-            except (InvalidOperation, TypeError, ValueError):
-                finite = False
-            if not finite:
+            if not isinstance(value, Decimal):
+                raise ValueError(f"{name} must be Decimal")
+            if not value.is_finite():
                 raise ValueError(f"{name} must be finite")
+
+        boolean_values = (
+            ("bot_suggestions_enabled", self.bot_suggestions_enabled),
+            ("auto_analysis_enabled", self.auto_analysis_enabled),
+            ("auto_execution_enabled", self.auto_execution_enabled),
+        )
+        for name, value in boolean_values:
+            if type(value) is not bool:
+                raise ValueError(f"{name} must be boolean")
 
         if self.risk_fraction <= 0 or self.risk_fraction >= 1:
             raise ValueError("risk_fraction must be greater than 0 and below 1")

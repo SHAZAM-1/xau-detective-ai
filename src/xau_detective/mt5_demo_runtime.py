@@ -72,7 +72,11 @@ class RuntimeConfig:
         poll_seconds = float(self.poll_seconds)
         if not math.isfinite(poll_seconds) or poll_seconds <= 0:
             raise ValueError("POLL_SECONDS_MUST_BE_POSITIVE")
-        if self.execution_enabled != self.auto_execution_enabled:
+        if (
+            type(self.execution_enabled) is not bool
+            or type(self.auto_execution_enabled) is not bool
+            or self.execution_enabled != self.auto_execution_enabled
+        ):
             raise ValueError("EXECUTION_GATES_MUST_MATCH")
         try:
             risk_fraction = Decimal(str(self.risk_fraction))

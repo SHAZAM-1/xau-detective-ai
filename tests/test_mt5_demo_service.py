@@ -2,6 +2,8 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from types import SimpleNamespace
 
+import pytest
+
 from xau_detective.audit_log import AuditEvent, InMemoryAuditLog
 from xau_detective.demo_execution import TradeIntent, TradeSource
 from xau_detective.environment import TradingEnvironment
@@ -638,3 +640,8 @@ def test_service_latches_execution_block_after_demo_account_switch():
         **cycle_args, idempotency_key="session-switch-acknowledged"
     )
     assert acknowledged.reason == "AUTO_ANALYSIS_DISABLED"
+
+
+def test_service_rejects_non_boolean_execution_opt_in():
+    with pytest.raises(ValueError, match="EXECUTION_ENABLED_MUST_BE_BOOLEAN"):
+        MT5DemoTradingService(FakeMT5(), execution_enabled="false")
