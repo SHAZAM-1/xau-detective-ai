@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 from xau_detective.mt5_market_hours import pepperstone_gold_gap_is_expected
 
