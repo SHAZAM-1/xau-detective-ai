@@ -140,3 +140,22 @@ def test_build_request_rejects_unsupported_filling_mode():
     mt5 = UnsupportedMT5(SimpleNamespace(retcode=10009, order=123))
     with pytest.raises(ValueError, match="NO_SUPPORTED_MARKET_FILLING_MODE"):
         MetaTrader5DemoGateway(mt5).build_request(intent())
+
+
+
+def test_send_order_rejects_zero_order_and_deal_tickets():
+    mt5 = FakeMT5(
+        SimpleNamespace(retcode=10009, order=0, deal=0, comment="done")
+    )
+    gateway = MetaTrader5DemoGateway(mt5)
+    with pytest.raises(RuntimeError, match="MT5_ORDER_ACCEPTED_WITHOUT_ID"):
+        gateway.send_order(intent())
+
+
+def test_send_order_uses_valid_deal_ticket_when_order_ticket_is_zero():
+    mt5 = FakeMT5(
+        SimpleNamespace(retcode=10009, order=0, deal=456, comment="done")
+    )
+    response = MetaTrader5DemoGateway(mt5).send_order_detailed(intent())
+    assert response.order_id is None
+    assert response.deal_id == "456"
