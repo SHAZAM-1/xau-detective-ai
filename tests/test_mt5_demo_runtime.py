@@ -252,10 +252,58 @@ def test_runtime_uses_durable_journal_and_audit_log(monkeypatch, tmp_path):
         mt5_module=FakeMT5(),
         config=RuntimeConfig(log_dir=tmp_path),
         once=True,
+        now_fn=lambda: NOW,
     )
 
     assert isinstance(captured["journal"], JsonlTradeJournal)
     assert captured["journal"].path == tmp_path / "trades.jsonl"
     assert isinstance(captured["audit_log"], JsonlAuditLog)
     assert captured["audit_log"].path == tmp_path / "audit.jsonl"
+    assert shutdown_calls == [True]
+
+
+
+def test_runtime_rejects_stale_market_tick_before_cycle(monkeypatch, tmp_path):
+    shutdown_calls = []
+    cycle_calls = []
+
+    class FakeMT5:
+        def initialize(self):
+            return True
+
+        def shutdown(self):
+            shutdown_calls.append(True)
+
+    class StaleTickSource:
+        def __init__(self, mt5_module):
+            pass
+
+        def resolve_symbol(self, symbol):
+            return symbol
+
+        def market_time(self, symbol):
+            return NOW - timedelta(minutes=5)
+
+    monkeypatch.setattr(
+        "xau_detective.mt5_demo_runtime.MT5CandleSource",
+        StaleTickSource,
+    )
+    monkeypatch.setattr(
+        "xau_detective.mt5_demo_runtime.MT5DemoTradingService",
+        lambda mt5_module, **kwargs: object(),
+    )
+    monkeypatch.setattr(
+        "xau_detective.mt5_demo_runtime.run_once",
+        lambda **kwargs: cycle_calls.append(True),
+    )
+
+    with pytest.raises(RuntimeError, match="MT5_MARKET_TIME_STALE"):
+        run_demo_runtime(
+            mt5_module=FakeMT5(),
+            config=RuntimeConfig(log_dir=tmp_path),
+            once=True,
+            now_fn=lambda: NOW,
+        )
+
+    assert cycle_calls == []
     assert shutdown_calls == [True]
