@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta, timezone
 
 from xau_detective.mt5_market_hours import pepperstone_gold_gap_is_expected
 
@@ -79,3 +79,16 @@ def test_unknown_timeframe_fails_closed():
     previous = datetime(2026, 10, 5, 22, 30, tzinfo=UTC)
     current = datetime(2026, 10, 6, 0, 30, tzinfo=UTC)
     assert not pepperstone_gold_gap_is_expected(previous, current, "M1")
+
+
+def test_gap_classification_normalizes_aware_timestamps_to_utc():
+    utc_previous = datetime(2026, 10, 5, 22, 30, tzinfo=UTC)
+    utc_current = datetime(2026, 10, 6, 0, 30, tzinfo=UTC)
+    broker_offset = timezone(timedelta(hours=3))
+    local_previous = utc_previous.astimezone(broker_offset)
+    local_current = utc_current.astimezone(broker_offset)
+
+    assert local_previous.date() == local_current.date()
+    assert pepperstone_gold_gap_is_expected(
+        local_previous, local_current, "H4"
+    )
