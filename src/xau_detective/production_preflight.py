@@ -98,18 +98,18 @@ def run_production_preflight(
     # This boundary must not let Decimal NaN/Infinity or malformed external
     # values reach comparisons below. Return a deterministic rejection instead
     # of allowing Decimal.InvalidOperation to escape or comparisons to mislead.
+    raw_numeric_inputs = (
+        account.balance,
+        account.equity,
+        account.free_margin,
+        execution.bid,
+        execution.ask,
+        execution.estimated_slippage,
+    )
+    if any(not isinstance(value, Decimal) for value in raw_numeric_inputs):
+        return PreflightResult(False, ("NUMERIC_INPUT_TYPE_INVALID",))
     try:
-        numeric_inputs = tuple(
-            Decimal(str(value))
-            for value in (
-                account.balance,
-                account.equity,
-                account.free_margin,
-                execution.bid,
-                execution.ask,
-                execution.estimated_slippage,
-            )
-        )
+        numeric_inputs = tuple(Decimal(str(value)) for value in raw_numeric_inputs)
     except (InvalidOperation, TypeError, ValueError):
         return PreflightResult(False, ("INVALID_NUMERIC_INPUT",))
     if any(not value.is_finite() for value in numeric_inputs):
