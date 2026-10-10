@@ -9,3 +9,20 @@ def test_invalid_tick_spec_is_rejected():
     ok, errors = validate_broker_spec(spec)
     assert not ok
     assert "INVALID_TICK_SPEC" in errors
+
+
+
+def test_non_finite_broker_spec_is_rejected_without_decimal_exception():
+    spec = BrokerSpec(
+        "XAUUSD",
+        Decimal(100),
+        Decimal("0.01"),
+        Decimal(100),
+        Decimal("0.01"),
+        Decimal("0.01"),
+        Decimal("Infinity"),
+        Decimal("0.01"),
+    )
+    ok, errors = validate_broker_spec(spec)
+    assert not ok
+    assert "NON_FINITE_BROKER_SPEC" in errors
