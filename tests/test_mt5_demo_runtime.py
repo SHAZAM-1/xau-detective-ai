@@ -174,3 +174,31 @@ def test_runtime_shuts_down_if_symbol_resolution_fails(monkeypatch):
         )
 
     assert shutdown_calls == [True]
+
+
+
+def test_fetch_closed_snapshot_rejects_stale_m5_data():
+    class StaleM5Source(FakeSource):
+        def fetch(self, symbol, timeframe, count):
+            candles = super().fetch(symbol, timeframe, count)
+            if timeframe is not Timeframe.M5:
+                return candles
+            return tuple(
+                Candle(
+                    timestamp=candle.timestamp - timedelta(hours=1),
+                    open=candle.open,
+                    high=candle.high,
+                    low=candle.low,
+                    close=candle.close,
+                    volume=candle.volume,
+                )
+                for candle in candles
+            )
+
+    with pytest.raises(RuntimeError, match="M5:STALE_DATA"):
+        fetch_closed_snapshot(
+            StaleM5Source(),
+            symbol="XAUUSD",
+            count=50,
+            now=NOW,
+        )
