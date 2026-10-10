@@ -9,7 +9,7 @@ from __future__ import annotations
 import argparse
 import time
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any, Protocol
 
@@ -22,6 +22,13 @@ from .trading_profile import TradingProfile
 
 
 TIMEFRAMES = (Timeframe.D1, Timeframe.H4, Timeframe.H1, Timeframe.M15, Timeframe.M5)
+MAX_STALENESS_BY_TIMEFRAME = {
+    Timeframe.D1: timedelta(days=3),
+    Timeframe.H4: timedelta(hours=8),
+    Timeframe.H1: timedelta(hours=2),
+    Timeframe.M15: timedelta(minutes=30),
+    Timeframe.M5: timedelta(minutes=10),
+}
 
 
 class RuntimeService(Protocol):
@@ -91,6 +98,12 @@ def fetch_closed_snapshot(
         for snapshot in snapshots
         if not snapshot.quality.usable
     ]
+    for timeframe in TIMEFRAMES:
+        snapshot = result[timeframe]
+        if snapshot.quality.usable and snapshot.candles:
+            age = now - snapshot.candles[-1].timestamp
+            if age > MAX_STALENESS_BY_TIMEFRAME[timeframe]:
+                reasons.append(f"{timeframe.value}:STALE_DATA")
     if reasons:
         raise RuntimeError("MARKET_DATA_REJECTED:" + "|".join(reasons))
     if any(not result[timeframe].candles for timeframe in TIMEFRAMES):
