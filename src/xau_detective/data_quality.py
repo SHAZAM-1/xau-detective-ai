@@ -48,7 +48,14 @@ def validate_candles(
                 reasons.append("DATA_GAP")
                 break
     for candle in candles:
-        if any(price <= 0 for price in (candle.open, candle.high, candle.low, candle.close)):
+        prices = (candle.open, candle.high, candle.low, candle.close)
+        if any(not price.is_finite() for price in prices):
+            reasons.append("NON_FINITE_PRICE")
+            break
+        if not candle.volume.is_finite():
+            reasons.append("NON_FINITE_VOLUME")
+            break
+        if any(price <= 0 for price in prices):
             reasons.append("NON_POSITIVE_PRICE")
             break
         if candle.volume < 0:
