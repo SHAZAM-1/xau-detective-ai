@@ -14,7 +14,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any, Protocol
 
-from .audit_log import JsonlAuditLog
+from .audit_log import AuditEvent, JsonlAuditLog
 from .ingestion import load_multi_timeframe
 from .mt5_demo_service import DemoCycleResult, MT5DemoTradingService
 from .mt5_market_hours import pepperstone_gold_gap_is_expected
@@ -189,6 +189,7 @@ def run_demo_runtime(
         last_closed_m5: datetime | None = None
 
         while True:
+            wall_now: datetime | None = None
             try:
                 wall_now = now_fn()
                 if wall_now.tzinfo is None:
@@ -228,6 +229,30 @@ def run_demo_runtime(
                     return
             except Exception as exc:
                 print(f"RUNTIME_REJECTED | {type(exc).__name__}:{exc}")
+                event_time = (
+                    wall_now
+                    if wall_now is not None
+                    and wall_now.tzinfo is not None
+                    and wall_now.utcoffset() is not None
+                    else datetime.now(UTC)
+                ).astimezone(UTC)
+                error_code = str(exc).split(":", 1)[0] or type(exc).__name__
+                try:
+                    audit_log.append(
+                        AuditEvent(
+                            timestamp=event_time,
+                            trace_id=(
+                                f"runtime-rejection:{event_time.isoformat()}:{error_code}"
+                            ),
+                            event="runtime_rejection",
+                            status="BLOCKED",
+                            reason=error_code,
+                            symbol=resolved_symbol,
+                            details={"exception_type": type(exc).__name__},
+                        )
+                    )
+                except Exception as audit_exc:
+                    raise RuntimeError("RUNTIME_AUDIT_LOG_WRITE_FAILED") from audit_exc
                 if once:
                     raise
 
