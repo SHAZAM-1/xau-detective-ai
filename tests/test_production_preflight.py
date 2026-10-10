@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, tzinfo
 from decimal import Decimal
 from types import SimpleNamespace
 
@@ -195,3 +195,72 @@ def test_production_preflight_rejects_stale_m5_snapshot():
     )
     assert not result.ready
     assert "M5_STALE_DATA" in result.reasons
+
+
+
+class MissingOffsetTimezone(tzinfo):
+    def utcoffset(self, dt):
+        return None
+
+    def dst(self, dt):
+        return None
+
+
+def test_production_preflight_rejects_non_finite_account_values():
+    now, capabilities, account, broker, execution = _inputs()
+    bad_account = AccountSnapshot(Decimal("1000"), Decimal("NaN"), Decimal("900"))
+    result = run_production_preflight(
+        capabilities=capabilities,
+        account=bad_account,
+        broker=broker,
+        execution=execution,
+        profile=TradingProfile(),
+        d1=_series(now - timedelta(days=20), timedelta(days=1)),
+        h4=_series(now - timedelta(hours=80), timedelta(hours=4)),
+        h1=_series(now - timedelta(hours=20), timedelta(hours=1)),
+        m15=_series(now - timedelta(hours=5), timedelta(minutes=15)),
+        m5=_series(now - timedelta(minutes=100), timedelta(minutes=5)),
+        now=now,
+    )
+    assert not result.ready
+    assert result.reasons == ("NON_FINITE_NUMERIC_INPUT",)
+
+
+def test_production_preflight_rejects_non_finite_market_values():
+    now, capabilities, account, broker, execution = _inputs()
+    bad_execution = ExecutionSnapshot(Decimal("Infinity"), Decimal("4000.2"))
+    result = run_production_preflight(
+        capabilities=capabilities,
+        account=account,
+        broker=broker,
+        execution=bad_execution,
+        profile=TradingProfile(),
+        d1=_series(now - timedelta(days=20), timedelta(days=1)),
+        h4=_series(now - timedelta(hours=80), timedelta(hours=4)),
+        h1=_series(now - timedelta(hours=20), timedelta(hours=1)),
+        m15=_series(now - timedelta(hours=5), timedelta(minutes=15)),
+        m5=_series(now - timedelta(minutes=100), timedelta(minutes=5)),
+        now=now,
+    )
+    assert not result.ready
+    assert result.reasons == ("NON_FINITE_NUMERIC_INPUT",)
+
+
+def test_production_preflight_rejects_timezone_object_without_offset():
+    now, capabilities, account, broker, execution = _inputs()
+    invalid_now = datetime(2026, 9, 27, 12, tzinfo=MissingOffsetTimezone())
+    result = run_production_preflight(
+        capabilities=capabilities,
+        account=account,
+        broker=broker,
+        execution=execution,
+        profile=TradingProfile(),
+        d1=_series(now - timedelta(days=20), timedelta(days=1)),
+        h4=_series(now - timedelta(hours=80), timedelta(hours=4)),
+        h1=_series(now - timedelta(hours=20), timedelta(hours=1)),
+        m15=_series(now - timedelta(hours=5), timedelta(minutes=15)),
+        m5=_series(now - timedelta(minutes=100), timedelta(minutes=5)),
+        now=invalid_now,
+    )
+    assert not result.ready
+    assert "PREFLIGHT_TIME_NOT_TIMEZONE_AWARE" in result.reasons
