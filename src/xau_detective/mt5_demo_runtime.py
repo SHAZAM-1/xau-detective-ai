@@ -94,9 +94,7 @@ def fetch_closed_snapshot(
         TIMEFRAMES,
         count,
         now=now,
-        gap_is_expected_for_timeframe=lambda previous, current, timeframe: (
-            pepperstone_gold_gap_is_expected(previous, current, timeframe)
-        ),
+        gap_is_expected_for_timeframe=pepperstone_gold_gap_is_expected,
     )
     result = {snapshot.timeframe: snapshot for snapshot in snapshots}
     reasons = [
