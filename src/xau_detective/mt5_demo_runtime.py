@@ -11,7 +11,7 @@ import math
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -61,18 +61,26 @@ class RuntimeConfig:
     log_dir: Path = Path("var/xau-detective-ai")
 
     def validate(self) -> None:
-        if not self.symbol:
+        if not isinstance(self.symbol, str) or not self.symbol.strip():
             raise ValueError("SYMBOL_REQUIRED")
-        if self.candle_count < 50:
+        if isinstance(self.candle_count, bool) or not isinstance(self.candle_count, int) or self.candle_count < 50:
             raise ValueError("CANDLE_COUNT_TOO_SMALL")
-        if not math.isfinite(self.poll_seconds) or self.poll_seconds <= 0:
+        try:
+            poll_seconds = float(self.poll_seconds)
+        except (TypeError, ValueError, OverflowError):
+            raise ValueError("POLL_SECONDS_MUST_BE_POSITIVE") from None
+        if not math.isfinite(poll_seconds) or poll_seconds <= 0:
             raise ValueError("POLL_SECONDS_MUST_BE_POSITIVE")
         if self.execution_enabled != self.auto_execution_enabled:
             raise ValueError("EXECUTION_GATES_MUST_MATCH")
+        try:
+            risk_fraction = Decimal(str(self.risk_fraction))
+        except (InvalidOperation, TypeError, ValueError):
+            raise ValueError("RISK_FRACTION_OUT_OF_RANGE") from None
         if (
-            not self.risk_fraction.is_finite()
-            or self.risk_fraction <= 0
-            or self.risk_fraction >= 1
+            not risk_fraction.is_finite()
+            or risk_fraction <= 0
+            or risk_fraction >= 1
         ):
             raise ValueError("RISK_FRACTION_OUT_OF_RANGE")
 
@@ -80,7 +88,7 @@ class RuntimeConfig:
 def build_profile(config: RuntimeConfig) -> TradingProfile:
     config.validate()
     return TradingProfile(
-        risk_fraction=config.risk_fraction,
+        risk_fraction=Decimal(str(config.risk_fraction)),
         auto_analysis_enabled=True,
         auto_execution_enabled=config.auto_execution_enabled,
     )
