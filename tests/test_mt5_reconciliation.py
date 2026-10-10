@@ -106,3 +106,24 @@ def test_missing_broker_state_is_not_found():
     ).reconcile(order_id="123")
 
     assert result.state is TradeLifecycleState.NOT_FOUND
+
+
+def test_unrelated_active_position_does_not_resolve_missing_order():
+    unrelated_position = SimpleNamespace(
+        ticket=777,
+        symbol="XAUUSD",
+        volume=Decimal("0.01"),
+        price_open=Decimal("4000"),
+        sl=Decimal("3990"),
+        tp=Decimal("4020"),
+        magic=260926,
+        comment="xau-detective-demo",
+    )
+    mt5 = FakeMT5(position=unrelated_position)
+
+    result = MT5TradeReconciler(
+        mt5, symbol="XAUUSD", magic=260926
+    ).reconcile(order_id="123")
+
+    assert result.state is TradeLifecycleState.NOT_FOUND
+    assert result.reason == "BROKER_STATE_NOT_FOUND"
