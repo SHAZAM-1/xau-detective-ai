@@ -78,6 +78,14 @@ class BrokerExecutionGate:
             return ExecutionGateResult(False, "INVALID_EXECUTION_NUMERIC_VALUE")
         if any(not value.is_finite() for value in normalized_inputs):
             return ExecutionGateResult(False, "INVALID_EXECUTION_NUMERIC_VALUE")
+        if (
+            Decimal(str(estimated_slippage)) < 0
+            or (max_spread is not None and Decimal(str(max_spread)) <= 0)
+            or (max_slippage is not None and Decimal(str(max_slippage)) < 0)
+            or Decimal(str(getattr(symbol_info, "trade_stops_level", "0"))) < 0
+            or Decimal(str(getattr(symbol_info, "trade_freeze_level", "0"))) < 0
+        ):
+            return ExecutionGateResult(False, "INVALID_EXECUTION_NUMERIC_VALUE")
 
         raw_trade_mode = getattr(symbol_info, "trade_mode", None)
         try:
