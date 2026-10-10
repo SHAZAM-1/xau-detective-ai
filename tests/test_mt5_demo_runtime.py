@@ -311,3 +311,21 @@ def test_runtime_rejects_stale_market_tick_before_cycle(monkeypatch, tmp_path):
     assert events[-1].event == "runtime_rejection"
     assert events[-1].reason == "MT5_MARKET_TIME_STALE"
     assert events[-1].status == "BLOCKED"
+
+
+
+@pytest.mark.parametrize("risk_fraction", [float("nan"), float("inf"), "not-a-number"])
+def test_runtime_config_rejects_malformed_or_non_finite_risk_fraction(risk_fraction):
+    with pytest.raises(ValueError, match="RISK_FRACTION_OUT_OF_RANGE"):
+        RuntimeConfig(risk_fraction=risk_fraction).validate()
+
+
+@pytest.mark.parametrize("poll_seconds", ["invalid", float("nan"), float("inf"), 0, -1])
+def test_runtime_config_rejects_malformed_or_non_positive_poll_interval(poll_seconds):
+    with pytest.raises(ValueError, match="POLL_SECONDS_MUST_BE_POSITIVE"):
+        RuntimeConfig(poll_seconds=poll_seconds).validate()
+
+
+def test_build_profile_normalizes_valid_numeric_risk_fraction():
+    profile = build_profile(RuntimeConfig(risk_fraction="0.02"))
+    assert profile.risk_fraction == Decimal("0.02")
