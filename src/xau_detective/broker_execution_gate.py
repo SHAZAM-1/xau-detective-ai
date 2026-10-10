@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from .demo_execution import TradeIntent
@@ -47,6 +47,37 @@ class BrokerExecutionGate:
             return ExecutionGateResult(False, "SYMBOL_MISMATCH")
         if intent.direction is Direction.NO_TRADE:
             return ExecutionGateResult(False, "NO_TRADE_DIRECTION")
+
+        # Validate every numeric value used by this gate before comparisons.
+        # Decimal NaN/Infinity can otherwise raise during ordering checks or
+        # evade ordinary range checks; malformed broker/account snapshots must
+        # fail closed with a stable result rather than escaping the gate.
+        numeric_inputs = [
+            intent.volume,
+            intent.entry,
+            intent.stop_loss,
+            intent.take_profit,
+            estimated_slippage,
+            getattr(symbol_info, "volume_min", "0"),
+            getattr(symbol_info, "volume_max", "0"),
+            getattr(symbol_info, "volume_step", "0"),
+            getattr(symbol_info, "bid", "0"),
+            getattr(symbol_info, "ask", "0"),
+            getattr(symbol_info, "point", "0"),
+            getattr(symbol_info, "trade_stops_level", "0"),
+            getattr(symbol_info, "trade_freeze_level", "0"),
+            getattr(account_info, "margin_free", "0"),
+        ]
+        if max_spread is not None:
+            numeric_inputs.append(max_spread)
+        if max_slippage is not None:
+            numeric_inputs.append(max_slippage)
+        try:
+            normalized_inputs = [Decimal(str(value)) for value in numeric_inputs]
+        except (InvalidOperation, TypeError, ValueError):
+            return ExecutionGateResult(False, "INVALID_EXECUTION_NUMERIC_VALUE")
+        if any(not value.is_finite() for value in normalized_inputs):
+            return ExecutionGateResult(False, "INVALID_EXECUTION_NUMERIC_VALUE")
 
         if getattr(symbol_info, "trade_mode", 0) == 0:
             return ExecutionGateResult(False, "SYMBOL_TRADING_DISABLED")
