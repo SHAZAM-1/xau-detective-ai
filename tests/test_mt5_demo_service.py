@@ -584,3 +584,37 @@ def test_recovery_required_can_be_reconciled_again_when_broker_state_appears():
     assert second.state.value == "POSITION_OPEN"
     assert journal.latest_for_idempotency_key("recovery-1").status == "RECOVERED_POSITION_OPEN"
     assert mt5.sent == []
+
+
+
+def test_service_latches_execution_block_after_demo_account_switch():
+    mt5 = FakeMT5()
+    service = MT5DemoTradingService(mt5, execution_enabled=True)
+    profile = TradingProfile(auto_analysis_enabled=False)
+    cycle_args = {
+        "profile": profile,
+        "d1": candles(),
+        "h4": candles(),
+        "h1": candles(),
+        "m15": candles(),
+        "m5": candles(),
+        "now": datetime(2026, 9, 26, 12, tzinfo=timezone.utc),
+    }
+
+    first = service.cycle(**cycle_args, idempotency_key="session-before-switch")
+    assert first.reason == "AUTO_ANALYSIS_DISABLED"
+
+    mt5.account.login = 456
+    mt5.account.server = "Demo-Other"
+
+    second = service.cycle(**cycle_args, idempotency_key="session-switch")
+    third = service.cycle(**cycle_args, idempotency_key="session-switch-next-cycle")
+
+    assert second.reason == "MT5_SESSION_CHANGED_EXECUTION_BLOCKED"
+    assert third.reason == "MT5_SESSION_CHANGED_EXECUTION_BLOCKED"
+    assert mt5.sent == []
+    assert any(
+        event.event == "session_switch_blocked"
+        and event.reason == "MT5_SESSION_CHANGED_EXECUTION_BLOCKED"
+        for event in service.audit_log.events()
+    )
