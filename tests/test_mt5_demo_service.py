@@ -549,3 +549,38 @@ def test_uncertain_order_submission_stays_pending_and_cannot_retry(monkeypatch):
 
     assert third.reason == "UNRESOLVED_SUBMISSION_REQUIRES_RECONCILIATION"
     assert execute_calls == [True]
+
+
+def test_recovery_required_can_be_reconciled_again_when_broker_state_appears():
+    mt5 = FakeMT5()
+    mt5.positions_get = lambda *, symbol: ()
+    mt5.orders_get = lambda *, symbol: ()
+    journal = InMemoryTradeJournal()
+    seed_pending(journal)
+    service = MT5DemoTradingService(mt5, journal=journal)
+
+    first = service.recover_pending_submission(
+        idempotency_key="recovery-1", order_id="777"
+    )
+    assert first.state.value == "NOT_FOUND"
+    assert journal.latest_for_idempotency_key("recovery-1").status == "RECOVERY_REQUIRED"
+
+    mt5.positions_get = lambda *, symbol: (
+        SimpleNamespace(
+            ticket=777,
+            symbol=symbol,
+            volume=Decimal("0.02"),
+            price_open=Decimal("4000"),
+            sl=Decimal("3990"),
+            tp=Decimal("4020"),
+            magic=260926,
+            comment="xau-detective-demo",
+        ),
+    )
+    second = service.recover_pending_submission(
+        idempotency_key="recovery-1", position_id="777"
+    )
+
+    assert second.state.value == "POSITION_OPEN"
+    assert journal.latest_for_idempotency_key("recovery-1").status == "RECOVERED_POSITION_OPEN"
+    assert mt5.sent == []
