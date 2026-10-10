@@ -71,6 +71,7 @@ class MT5DemoTradingService:
         self._guardian = project_guardian or ProjectGuardian(self._audit)
         self._positions = MT5PositionManager(mt5_module, symbol=symbol, magic=magic)
         self._health = RuntimeHealthTracker()
+        self._session_switch_blocked = False
 
     @property
     def audit_log(self) -> AuditLog:
@@ -368,6 +369,30 @@ class MT5DemoTradingService:
             terminal_trade_allowed=terminal_trade_allowed,
         )
         changed = session_before != state.identity
+        if session_before is not None and changed:
+            self._session_switch_blocked = True
+
+        if self._session_switch_blocked:
+            reason = "MT5_SESSION_CHANGED_EXECUTION_BLOCKED"
+            self._health.rejected(reason)
+            self._audit_rejection(
+                trace_id=idempotency_key,
+                now=now,
+                reason=reason,
+                event="session_switch_blocked",
+                details={
+                    "previous_login": session_before.login if session_before else None,
+                    "previous_server": session_before.server if session_before else None,
+                    "current_login": state.identity.login,
+                    "current_server": state.identity.server,
+                    "current_environment": state.identity.environment.value,
+                },
+            )
+            return self._finish(
+                trace_id=idempotency_key,
+                now=now,
+                result=DemoCycleResult(changed, None, None, reason),
+            )
 
         if state.capabilities.environment is not TradingEnvironment.DEMO:
             reason = "LIVE_EXECUTION_LOCKED_V1"
