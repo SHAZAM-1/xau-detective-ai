@@ -1,4 +1,4 @@
-""""Pepperstone Spot Gold session-gap policy for MT5 market data."""
+"""Pepperstone Spot Gold session-gap policy for MT5 market data."""
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
