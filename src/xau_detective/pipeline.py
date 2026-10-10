@@ -128,6 +128,7 @@ def analyze_market(
     execution: ExecutionSnapshot | None = None,
     daily_risk: DailyRiskState | None = None,
     gap_is_expected: Callable[[object, object], bool] | None = None,
+    gap_is_expected_for_timeframe: Callable[[object, object, Timeframe], bool] | None = None,
 ) -> MarketAnalysis:
     config = config or AnalysisConfig()
     timestamp = now or datetime.now(UTC)
@@ -152,6 +153,8 @@ def analyze_market(
             candles,
             expected_interval(timeframe),
             gap_is_expected=gap_is_expected,
+            timeframe=timeframe,
+            gap_is_expected_for_timeframe=gap_is_expected_for_timeframe,
         )
         if not quality.usable:
             return _no_trade(
