@@ -240,7 +240,7 @@ class MT5DemoTradingService:
         """Reconcile a durable pending submission without sending a new order."""
         timestamp = now or datetime.now(UTC)
         pending = self._journal.latest_for_idempotency_key(idempotency_key)
-        if pending is None or pending.status != "PENDING_SUBMISSION":
+        if pending is None or pending.status not in {"PENDING_SUBMISSION", "RECOVERY_REQUIRED"}:
             raise ValueError("PENDING_SUBMISSION_NOT_FOUND")
 
         reconciler = MT5TradeReconciler(
