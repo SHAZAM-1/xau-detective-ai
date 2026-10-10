@@ -196,14 +196,19 @@ def run_backtest_monte_carlo(
     if not result.trades:
         raise ValueError("backtest result must contain at least one trade")
 
-    returns = tuple(trade.net_pnl for trade in result.trades)
-    r_multiples = tuple(
-        trade.net_pnl / trade.risk_amount
-        for trade in result.trades
-        if trade.risk_amount > 0
-    )
-    if len(r_multiples) != len(returns):
+    try:
+        returns = tuple(Decimal(str(trade.net_pnl)) for trade in result.trades)
+        risks = tuple(Decimal(str(trade.risk_amount)) for trade in result.trades)
+    except (InvalidOperation, TypeError, ValueError) as exc:
+        raise ValueError("backtest trade values must be finite numeric values") from exc
+
+    if any(not value.is_finite() for value in (*returns, *risks)):
+        raise ValueError("backtest trade values must be finite numeric values")
+    if any(risk <= 0 for risk in risks):
         raise ValueError("all backtest trades must have positive risk_amount")
+    r_multiples = tuple(
+        trade_return / risk for trade_return, risk in zip(returns, risks)
+    )
 
     return run_monte_carlo(
         returns,
