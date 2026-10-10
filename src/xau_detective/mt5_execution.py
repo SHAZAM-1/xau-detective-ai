@@ -110,15 +110,15 @@ class MetaTrader5DemoGateway:
                 f"MT5_ORDER_REJECTED:{retcode}:{comment or 'MT5_ORDER_REJECTED'}"
             )
 
-        order_id = getattr(result, "order", None)
-        deal_id = getattr(result, "deal", None)
+        order_id = self._positive_ticket(getattr(result, "order", None))
+        deal_id = self._positive_ticket(getattr(result, "deal", None))
         if order_id is None and deal_id is None:
             raise RuntimeError("MT5_ORDER_ACCEPTED_WITHOUT_ID")
 
         return MT5OrderResponse(
             accepted=True,
-            order_id=str(order_id) if order_id is not None else None,
-            deal_id=str(deal_id) if deal_id is not None else None,
+            order_id=order_id,
+            deal_id=deal_id,
             filled_volume=(
                 Decimal(str(getattr(result, "volume", intent.volume)))
                 if getattr(result, "volume", None) is not None
@@ -132,6 +132,16 @@ class MetaTrader5DemoGateway:
             retcode=retcode,
             comment=str(getattr(result, "comment", "")),
         )
+
+    @staticmethod
+    def _positive_ticket(value: Any) -> str | None:
+        if value is None:
+            return None
+        try:
+            ticket = int(value)
+        except (TypeError, ValueError, OverflowError):
+            return None
+        return str(ticket) if ticket > 0 else None
 
     def send_order_detailed(self, intent: TradeIntent) -> MT5OrderResponse:
         return self._send(intent)
