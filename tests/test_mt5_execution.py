@@ -159,3 +159,14 @@ def test_send_order_uses_valid_deal_ticket_when_order_ticket_is_zero():
     response = MetaTrader5DemoGateway(mt5).send_order_detailed(intent())
     assert response.order_id is None
     assert response.deal_id == "456"
+
+
+
+def test_build_request_fails_closed_when_filling_mode_is_missing():
+    class MissingFillingModeMT5(FakeMT5):
+        def symbol_info(self, symbol):
+            return SimpleNamespace()
+
+    mt5 = MissingFillingModeMT5(SimpleNamespace(retcode=10009, order=123))
+    with pytest.raises(ValueError, match="SYMBOL_FILLING_MODE_UNAVAILABLE"):
+        MetaTrader5DemoGateway(mt5).build_request(intent())
