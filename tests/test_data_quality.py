@@ -66,3 +66,36 @@ def test_gap_policy_does_not_hide_unexpected_gaps():
     )
     assert not result.usable
     assert "DATA_GAP" in result.reasons
+
+
+def test_timeframe_specific_gap_policy_receives_timeframe():
+    from xau_detective.timeframes import Timeframe
+
+    t = datetime(2026, 10, 5, 21, tzinfo=UTC)
+    seen = []
+
+    def policy(previous, current, timeframe):
+        seen.append(timeframe)
+        return timeframe is Timeframe.H4
+
+    result = validate_candles(
+        (c(t), c(t + timedelta(hours=3))),
+        timedelta(hours=1),
+        timeframe=Timeframe.H4,
+        gap_is_expected_for_timeframe=policy,
+    )
+
+    assert result.usable
+    assert seen == [Timeframe.H4]
+
+
+def test_timeframe_specific_gap_policy_fails_closed_without_timeframe():
+    t = datetime(2026, 10, 5, 21, tzinfo=UTC)
+    result = validate_candles(
+        (c(t), c(t + timedelta(hours=3))),
+        timedelta(hours=1),
+        gap_is_expected_for_timeframe=lambda previous, current, timeframe: True,
+    )
+
+    assert not result.usable
+    assert "DATA_GAP" in result.reasons
