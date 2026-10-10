@@ -72,7 +72,7 @@ def test_production_preflight_accepts_valid_demo_snapshot():
         h4=_series(now - timedelta(hours=80), timedelta(hours=4)),
         h1=_series(now - timedelta(hours=20), timedelta(hours=1)),
         m15=_series(now - timedelta(hours=5), timedelta(minutes=15)),
-        m5=_series(now - timedelta(hours=2), timedelta(minutes=5)),
+        m5=_series(now - timedelta(minutes=100), timedelta(minutes=5)),
         now=now,
     )
     assert result.ready
@@ -100,7 +100,7 @@ def test_production_preflight_accepts_expected_good_friday_d1_gap():
         h4=_series(now - timedelta(hours=80), timedelta(hours=4)),
         h1=_series(now - timedelta(hours=20), timedelta(hours=1)),
         m15=_series(now - timedelta(hours=5), timedelta(minutes=15)),
-        m5=_series(now - timedelta(hours=2), timedelta(minutes=5)),
+        m5=_series(now - timedelta(minutes=100), timedelta(minutes=5)),
         now=now,
     )
     assert result.ready
