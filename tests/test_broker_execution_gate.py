@@ -235,3 +235,21 @@ def test_gate_rejects_symbol_without_market_order_permission():
         symbol_info=s, intent=intent(),
     )
     assert result.reason == "MARKET_ORDERS_NOT_ALLOWED"
+
+
+def test_gate_rejects_negative_estimated_slippage_without_profile_limit():
+    result = BrokerExecutionGate().validate(
+        mt5=FakeMT5(), capabilities=capabilities(), account_info=account(),
+        symbol_info=symbol(), intent=intent(), estimated_slippage=Decimal("-0.01"),
+    )
+    assert result.reason == "INVALID_EXECUTION_NUMERIC_VALUE"
+
+
+def test_gate_rejects_negative_broker_stop_levels():
+    s = symbol()
+    s.trade_stops_level = -1
+    result = BrokerExecutionGate().validate(
+        mt5=FakeMT5(), capabilities=capabilities(), account_info=account(),
+        symbol_info=s, intent=intent(),
+    )
+    assert result.reason == "INVALID_EXECUTION_NUMERIC_VALUE"
