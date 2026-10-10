@@ -8,6 +8,7 @@ from xau_detective.mt5_demo_runtime import (
     RuntimeConfig,
     build_profile,
     fetch_closed_snapshot,
+    run_demo_runtime,
     run_once,
 )
 from xau_detective.timeframes import Timeframe
@@ -140,3 +141,36 @@ def test_run_once_skips_same_closed_m5_candle():
     assert closed_again == closed_m5
     assert second is None
     assert len(service.calls) == 1
+
+
+
+def test_runtime_shuts_down_if_symbol_resolution_fails(monkeypatch):
+    shutdown_calls = []
+
+    class FakeMT5:
+        def initialize(self):
+            return True
+
+        def shutdown(self):
+            shutdown_calls.append(True)
+
+    class BrokenSource:
+        def __init__(self, mt5_module):
+            pass
+
+        def resolve_symbol(self, symbol):
+            raise RuntimeError("SYMBOL_RESOLUTION_FAILED")
+
+    monkeypatch.setattr(
+        "xau_detective.mt5_demo_runtime.MT5CandleSource",
+        BrokenSource,
+    )
+
+    with pytest.raises(RuntimeError, match="SYMBOL_RESOLUTION_FAILED"):
+        run_demo_runtime(
+            mt5_module=FakeMT5(),
+            config=RuntimeConfig(),
+            once=True,
+        )
+
+    assert shutdown_calls == [True]
