@@ -47,7 +47,10 @@ class BrokerExecutionGate:
             return ExecutionGateResult(False, "SYMBOL_MISMATCH")
         if intent.direction is Direction.NO_TRADE:
             return ExecutionGateResult(False, "NO_TRADE_DIRECTION")
-        if intent.direction not in {Direction.BUY, Direction.SELL}:
+        if not isinstance(intent.direction, Direction) or intent.direction not in {
+            Direction.BUY,
+            Direction.SELL,
+        }:
             return ExecutionGateResult(False, "INVALID_TRADE_DIRECTION")
 
         typed_numeric_inputs = [
