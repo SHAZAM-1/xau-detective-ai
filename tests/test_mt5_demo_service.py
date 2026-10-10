@@ -526,3 +526,26 @@ def test_uncertain_order_submission_stays_pending_and_cannot_retry(monkeypatch):
 
     assert second.reason == "UNRESOLVED_SUBMISSION_REQUIRES_RECONCILIATION"
     assert execute_calls == [True]
+
+    journal.append(
+        journal_entry_from_intent(
+            intent=intent,
+            status="RECOVERY_REQUIRED",
+            reason="BROKER_STATE_NOT_FOUND_MANUAL_RECONCILIATION_REQUIRED",
+            timestamp=now,
+        )
+    )
+    third = service.cycle(
+        profile=profile,
+        d1=candles(),
+        h4=candles(),
+        h1=candles(),
+        m15=candles(),
+        m5=candles(),
+        now=now,
+        idempotency_key=intent.idempotency_key,
+        user_intent=intent,
+    )
+
+    assert third.reason == "UNRESOLVED_SUBMISSION_REQUIRES_RECONCILIATION"
+    assert execute_calls == [True]
