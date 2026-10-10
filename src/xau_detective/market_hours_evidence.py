@@ -24,7 +24,9 @@ EVIDENCE_WINDOWS = (
     ),
     (
         "friday_sunday_weekend",
-        datetime(2026, 10, 2, 18, tzinfo=UTC),
+        # Include Friday's D1 open so the window can verify the full weekend
+        # gap, not just the intraday Friday-close-to-Monday-open interval.
+        datetime(2026, 10, 2, tzinfo=UTC),
         datetime(2026, 10, 5, 8, tzinfo=UTC),
     ),
     (

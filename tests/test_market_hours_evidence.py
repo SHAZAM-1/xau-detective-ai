@@ -4,6 +4,7 @@ from types import SimpleNamespace
 import pytest
 
 from xau_detective.market_hours_evidence import (
+    EVIDENCE_WINDOWS,
     collect_market_hours_evidence,
     is_explicit_demo_account,
     resolve_symbol_read_only,
@@ -135,3 +136,9 @@ def test_demo_account_check_requires_explicit_mt5_demo_constant():
         SimpleNamespace(ACCOUNT_TRADE_MODE_DEMO=0),
         account,
     )
+
+
+def test_weekend_evidence_window_includes_friday_d1_open():
+    _, start, end = next(window for window in EVIDENCE_WINDOWS if window[0] == "friday_sunday_weekend")
+    assert start == datetime(2026, 10, 2, tzinfo=UTC)
+    assert end == datetime(2026, 10, 5, 8, tzinfo=UTC)
