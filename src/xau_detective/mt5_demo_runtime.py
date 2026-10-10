@@ -7,6 +7,7 @@ closed M5 candle. It never implements a second strategy or execution path.
 from __future__ import annotations
 
 import argparse
+import math
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -64,11 +65,15 @@ class RuntimeConfig:
             raise ValueError("SYMBOL_REQUIRED")
         if self.candle_count < 50:
             raise ValueError("CANDLE_COUNT_TOO_SMALL")
-        if self.poll_seconds <= 0:
+        if not math.isfinite(self.poll_seconds) or self.poll_seconds <= 0:
             raise ValueError("POLL_SECONDS_MUST_BE_POSITIVE")
         if self.execution_enabled != self.auto_execution_enabled:
             raise ValueError("EXECUTION_GATES_MUST_MATCH")
-        if self.risk_fraction <= 0 or self.risk_fraction >= 1:
+        if (
+            not self.risk_fraction.is_finite()
+            or self.risk_fraction <= 0
+            or self.risk_fraction >= 1
+        ):
             raise ValueError("RISK_FRACTION_OUT_OF_RANGE")
 
 
