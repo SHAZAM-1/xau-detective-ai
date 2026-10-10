@@ -197,12 +197,12 @@ def run_demo_runtime(
             wall_now: datetime | None = None
             try:
                 wall_now = now_fn()
-                if wall_now.tzinfo is None:
+                if wall_now.tzinfo is None or wall_now.utcoffset() is None:
                     raise RuntimeError("RUNTIME_CLOCK_NOT_TIMEZONE_AWARE")
                 wall_now = wall_now.astimezone(UTC)
 
                 market_now = source.market_time(resolved_symbol)
-                if market_now.tzinfo is None:
+                if market_now.tzinfo is None or market_now.utcoffset() is None:
                     raise RuntimeError("MT5_MARKET_TIME_NOT_TIMEZONE_AWARE")
                 market_now = market_now.astimezone(UTC)
                 clock_lag = wall_now - market_now
