@@ -1,8 +1,10 @@
+from datetime import UTC, datetime, tzinfo
 from decimal import Decimal
+from types import SimpleNamespace
 
 import pytest
 
-from xau_detective.mt5_demo_runtime import RuntimeConfig
+from xau_detective.mt5_demo_runtime import RuntimeConfig, run_demo_runtime
 from xau_detective.trading_profile import TradingProfile
 
 
@@ -43,3 +45,71 @@ def test_valid_finite_profile_remains_accepted():
         max_spread=Decimal("0.3"),
         max_slippage=Decimal("0.1"),
     ).validate()
+
+
+class MissingOffsetTimezone(tzinfo):
+    def utcoffset(self, dt):
+        return None
+
+    def dst(self, dt):
+        return None
+
+    def tzname(self, dt):
+        return "missing-offset"
+
+
+@pytest.mark.parametrize(
+    ("invalid_clock", "expected_reason"),
+    [
+        ("wall", "RUNTIME_CLOCK_NOT_TIMEZONE_AWARE"),
+        ("market", "MT5_MARKET_TIME_NOT_TIMEZONE_AWARE"),
+    ],
+)
+def test_runtime_rejects_timezone_object_without_utc_offset(
+    invalid_clock, expected_reason, monkeypatch, tmp_path
+):
+    now = datetime(2026, 10, 6, 12, tzinfo=UTC)
+    invalid_time = datetime(2026, 10, 6, 12, tzinfo=MissingOffsetTimezone())
+    shutdown_calls = []
+    cycle_calls = []
+
+    class FakeMT5:
+        def initialize(self):
+            return True
+
+        def shutdown(self):
+            shutdown_calls.append(True)
+
+    class FakeSource:
+        def __init__(self, mt5_module):
+            pass
+
+        def resolve_symbol(self, symbol):
+            return symbol
+
+        def market_time(self, symbol):
+            return invalid_time if invalid_clock == "market" else now
+
+    monkeypatch.setattr(
+        "xau_detective.mt5_demo_runtime.MT5CandleSource",
+        FakeSource,
+    )
+    monkeypatch.setattr(
+        "xau_detective.mt5_demo_runtime.MT5DemoTradingService",
+        lambda mt5_module, **kwargs: object(),
+    )
+    monkeypatch.setattr(
+        "xau_detective.mt5_demo_runtime.run_once",
+        lambda **kwargs: cycle_calls.append(True),
+    )
+
+    with pytest.raises(RuntimeError, match=expected_reason):
+        run_demo_runtime(
+            mt5_module=FakeMT5(),
+            config=RuntimeConfig(log_dir=tmp_path),
+            once=True,
+            now_fn=lambda: invalid_time if invalid_clock == "wall" else now,
+        )
+
+    assert cycle_calls == []
+    assert shutdown_calls == [True]
