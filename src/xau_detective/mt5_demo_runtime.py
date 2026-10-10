@@ -65,10 +65,11 @@ class RuntimeConfig:
             raise ValueError("SYMBOL_REQUIRED")
         if isinstance(self.candle_count, bool) or not isinstance(self.candle_count, int) or self.candle_count < 50:
             raise ValueError("CANDLE_COUNT_TOO_SMALL")
-        try:
-            poll_seconds = float(self.poll_seconds)
-        except (TypeError, ValueError, OverflowError):
-            raise ValueError("POLL_SECONDS_MUST_BE_POSITIVE") from None
+        if isinstance(self.poll_seconds, bool) or not isinstance(
+            self.poll_seconds, (int, float)
+        ):
+            raise ValueError("POLL_SECONDS_MUST_BE_POSITIVE")
+        poll_seconds = float(self.poll_seconds)
         if not math.isfinite(poll_seconds) or poll_seconds <= 0:
             raise ValueError("POLL_SECONDS_MUST_BE_POSITIVE")
         if self.execution_enabled != self.auto_execution_enabled:
