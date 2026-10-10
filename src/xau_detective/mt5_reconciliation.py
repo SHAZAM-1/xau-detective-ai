@@ -10,7 +10,7 @@ from enum import Enum
 from decimal import Decimal
 from typing import Any
 
-from .mt5_position_manager import LifecycleSnapshot, MT5PositionManager
+from .mt5_position_manager import MT5PositionManager
 
 
 class TradeLifecycleState(str, Enum):
@@ -86,8 +86,6 @@ class MT5TradeReconciler:
         position_id: str | None = None,
         requested_volume: str | None = None,
     ) -> ReconciliationResult:
-        snapshot: LifecycleSnapshot = self._positions.snapshot()
-
         if position_id is not None:
             position = self._positions.find_ticket(position_id)
             if position is not None and hasattr(position, "volume"):
