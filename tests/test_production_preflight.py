@@ -264,3 +264,24 @@ def test_production_preflight_rejects_timezone_object_without_offset():
     )
     assert not result.ready
     assert "PREFLIGHT_TIME_NOT_TIMEZONE_AWARE" in result.reasons
+
+
+
+def test_production_preflight_rejects_malformed_numeric_types():
+    now, capabilities, account, broker, execution = _inputs()
+    bad_execution = ExecutionSnapshot("4000", Decimal("4000.2"))
+    result = run_production_preflight(
+        capabilities=capabilities,
+        account=account,
+        broker=broker,
+        execution=bad_execution,
+        profile=TradingProfile(),
+        d1=_series(now - timedelta(days=20), timedelta(days=1)),
+        h4=_series(now - timedelta(hours=80), timedelta(hours=4)),
+        h1=_series(now - timedelta(hours=20), timedelta(hours=1)),
+        m15=_series(now - timedelta(hours=5), timedelta(minutes=15)),
+        m5=_series(now - timedelta(minutes=100), timedelta(minutes=5)),
+        now=now,
+    )
+    assert not result.ready
+    assert result.reasons == ("NUMERIC_INPUT_TYPE_INVALID",)
