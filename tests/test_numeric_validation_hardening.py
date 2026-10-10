@@ -1,6 +1,5 @@
 from datetime import UTC, datetime, tzinfo
 from decimal import Decimal
-from types import SimpleNamespace
 
 import pytest
 
