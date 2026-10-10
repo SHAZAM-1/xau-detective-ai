@@ -69,7 +69,7 @@ class MetaTrader5DemoGateway:
             raise ValueError("SYMBOL_INFO_UNAVAILABLE")
         mode = getattr(info, "filling_mode", None)
         if mode is None:
-            return int(getattr(self._mt5, "ORDER_FILLING_IOC", 1))
+            raise ValueError("SYMBOL_FILLING_MODE_UNAVAILABLE")
 
         # SYMBOL_FILLING_* is a bitmask; request["type_filling"] requires the
         # corresponding ORDER_FILLING_* enum, not the raw bitmask.
