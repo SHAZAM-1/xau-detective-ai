@@ -158,3 +158,22 @@ def test_monte_carlo_rejects_mismatched_r_multiples():
             (Decimal("1"), Decimal("-1")),
             trade_r_multiples=(Decimal("1"),),
         )
+
+
+
+def test_monte_carlo_rejects_non_finite_trade_returns():
+    with pytest.raises(ValueError, match="finite numeric values"):
+        run_monte_carlo((Decimal("NaN"),))
+
+
+def test_monte_carlo_rejects_non_finite_equity_and_r_multiples():
+    with pytest.raises(ValueError, match="finite numeric values"):
+        run_monte_carlo(
+            (Decimal("1"),),
+            initial_equity=Decimal("Infinity"),
+        )
+    with pytest.raises(ValueError, match="finite numeric values"):
+        run_monte_carlo(
+            (Decimal("1"),),
+            trade_r_multiples=(Decimal("NaN"),),
+        )
