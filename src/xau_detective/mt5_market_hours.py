@@ -1,7 +1,7 @@
 """"Pepperstone Spot Gold session-gap policy for MT5 market data."""
 from __future__ import annotations
 
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, timedelta
 
 
 # Candle timestamps are normalized to UTC by the MT5 adapter. Avoid checking
