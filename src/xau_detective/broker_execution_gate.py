@@ -163,7 +163,13 @@ class BrokerExecutionGate:
                 return ExecutionGateResult(False, "MARGIN_CALCULATION_FAILED")
             if margin is None:
                 return ExecutionGateResult(False, "MARGIN_CALCULATION_FAILED")
-            if Decimal(str(margin)) >= free_margin:
+            try:
+                normalized_margin = Decimal(str(margin))
+            except (InvalidOperation, TypeError, ValueError):
+                return ExecutionGateResult(False, "MARGIN_CALCULATION_FAILED")
+            if not normalized_margin.is_finite() or normalized_margin < 0:
+                return ExecutionGateResult(False, "MARGIN_CALCULATION_FAILED")
+            if normalized_margin >= free_margin:
                 return ExecutionGateResult(False, "INSUFFICIENT_FREE_MARGIN")
 
         return ExecutionGateResult(True, "OK")
