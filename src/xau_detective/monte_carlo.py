@@ -7,7 +7,7 @@ trade-return distribution and estimate drawdown/ruin frequencies.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 import random
 
 from .backtest import BacktestResult
@@ -80,6 +80,23 @@ def run_monte_carlo(
     to select strategy parameters or turn in-sample performance into an
     out-of-sample claim.
     """
+    try:
+        trade_returns = tuple(Decimal(str(value)) for value in trade_returns)
+        initial_equity = Decimal(str(initial_equity))
+        ruin_threshold = Decimal(str(ruin_threshold))
+        if trade_r_multiples is not None:
+            trade_r_multiples = tuple(
+                Decimal(str(value)) for value in trade_r_multiples
+            )
+    except (InvalidOperation, TypeError, ValueError) as exc:
+        raise ValueError("Monte Carlo inputs must be finite numeric values") from exc
+
+    numeric_inputs = (*trade_returns, initial_equity, ruin_threshold)
+    if trade_r_multiples is not None:
+        numeric_inputs += trade_r_multiples
+    if any(not value.is_finite() for value in numeric_inputs):
+        raise ValueError("Monte Carlo inputs must be finite numeric values")
+
     if not trade_returns:
         raise ValueError("trade_returns cannot be empty")
     if simulations <= 0:
