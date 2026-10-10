@@ -253,3 +253,21 @@ def test_gate_rejects_negative_broker_stop_levels():
         symbol_info=s, intent=intent(),
     )
     assert result.reason == "INVALID_EXECUTION_NUMERIC_VALUE"
+
+
+def test_gate_rejects_malformed_trade_intent_numeric_types_without_raising():
+    invalid = TradeIntent(**{**intent().__dict__, "volume": "0.01"})
+    result = BrokerExecutionGate().validate(
+        mt5=FakeMT5(), capabilities=capabilities(), account_info=account(),
+        symbol_info=symbol(), intent=invalid,
+    )
+    assert result.reason == "INVALID_EXECUTION_NUMERIC_VALUE"
+
+
+def test_gate_rejects_non_enum_trade_direction():
+    invalid = TradeIntent(**{**intent().__dict__, "direction": "BUY"})
+    result = BrokerExecutionGate().validate(
+        mt5=FakeMT5(), capabilities=capabilities(), account_info=account(),
+        symbol_info=symbol(), intent=invalid,
+    )
+    assert result.reason == "INVALID_TRADE_DIRECTION"

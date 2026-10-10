@@ -47,6 +47,22 @@ class BrokerExecutionGate:
             return ExecutionGateResult(False, "SYMBOL_MISMATCH")
         if intent.direction is Direction.NO_TRADE:
             return ExecutionGateResult(False, "NO_TRADE_DIRECTION")
+        if intent.direction not in {Direction.BUY, Direction.SELL}:
+            return ExecutionGateResult(False, "INVALID_TRADE_DIRECTION")
+
+        typed_numeric_inputs = [
+            intent.volume,
+            intent.entry,
+            intent.stop_loss,
+            intent.take_profit,
+            estimated_slippage,
+        ]
+        if max_spread is not None:
+            typed_numeric_inputs.append(max_spread)
+        if max_slippage is not None:
+            typed_numeric_inputs.append(max_slippage)
+        if any(not isinstance(value, Decimal) for value in typed_numeric_inputs):
+            return ExecutionGateResult(False, "INVALID_EXECUTION_NUMERIC_VALUE")
 
         # Validate every numeric value used by this gate before comparisons.
         # Decimal NaN/Infinity can otherwise raise during ordering checks or
