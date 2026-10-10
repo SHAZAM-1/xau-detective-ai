@@ -7,6 +7,7 @@ from itertools import pairwise
 from typing import Callable
 
 from .market import Candle
+from .timeframes import Timeframe
 
 
 @dataclass(frozen=True)
@@ -19,6 +20,9 @@ def validate_candles(
     candles: tuple[Candle, ...],
     expected_interval: timedelta | None = None,
     gap_is_expected: Callable[[object, object], bool] | None = None,
+    *,
+    timeframe: Timeframe | None = None,
+    gap_is_expected_for_timeframe: Callable[[object, object, Timeframe], bool] | None = None,
 ) -> DataQuality:
     if not candles:
         return DataQuality(False, ("NO_CANDLES",))
@@ -28,7 +32,14 @@ def validate_candles(
             reasons.append("NON_MONOTONIC_TIMESTAMPS")
             break
         if expected_interval is not None and current.timestamp - previous.timestamp > expected_interval * 2:
-            if gap_is_expected is None or not gap_is_expected(previous.timestamp, current.timestamp):
+            expected = False
+            if gap_is_expected_for_timeframe is not None and timeframe is not None:
+                expected = gap_is_expected_for_timeframe(
+                    previous.timestamp, current.timestamp, timeframe
+                )
+            elif gap_is_expected is not None:
+                expected = gap_is_expected(previous.timestamp, current.timestamp)
+            if not expected:
                 reasons.append("DATA_GAP")
                 break
     for candle in candles:
