@@ -101,3 +101,4 @@ def test_demo_runner_passes_pepperstone_gap_policy_to_pipeline(monkeypatch):
 
     assert captured["gap_is_expected_for_timeframe"] is pepperstone_gold_gap_is_expected
     assert result.reason == "NO_TRADE"
+    assert result.allowed is False
