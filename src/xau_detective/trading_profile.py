@@ -1,11 +1,14 @@
 """User-configurable trading preferences with immutable safety boundaries."""
 from __future__ import annotations
+
 from dataclasses import dataclass
 from decimal import Decimal
+
 
 @dataclass(frozen=True)
 class TradingProfile:
     """User preferences applied to analysis and execution policy."""
+
     risk_fraction: Decimal = Decimal("0.01")
     min_reward_risk: Decimal = Decimal("2.0")
     bot_suggestions_enabled: bool = True
@@ -14,9 +17,33 @@ class TradingProfile:
     max_spread: Decimal | None = None
     max_slippage: Decimal | None = None
     stop_atr_multiple: Decimal = Decimal("1.5")
-    allowed_sessions: tuple[str, ...] = ("LONDON", "NEW_YORK")
+    allowed_sessions: tuple[str, ...] = ("ASIA", "LONDON", "NEW_YORK")
 
     def validate(self) -> None:
+        numeric_values = (
+            ("risk_fraction", self.risk_fraction),
+            ("min_reward_risk", self.min_reward_risk),
+            ("stop_atr_multiple", self.stop_atr_multiple),
+            ("max_spread", self.max_spread),
+            ("max_slippage", self.max_slippage),
+        )
+        for name, value in numeric_values:
+            if value is None:
+                continue
+            if not isinstance(value, Decimal):
+                raise ValueError(f"{name} must be Decimal")
+            if not value.is_finite():
+                raise ValueError(f"{name} must be finite")
+
+        boolean_values = (
+            ("bot_suggestions_enabled", self.bot_suggestions_enabled),
+            ("auto_analysis_enabled", self.auto_analysis_enabled),
+            ("auto_execution_enabled", self.auto_execution_enabled),
+        )
+        for name, value in boolean_values:
+            if type(value) is not bool:
+                raise ValueError(f"{name} must be boolean")
+
         if self.risk_fraction <= 0 or self.risk_fraction >= 1:
             raise ValueError("risk_fraction must be greater than 0 and below 1")
         if self.min_reward_risk <= 0:

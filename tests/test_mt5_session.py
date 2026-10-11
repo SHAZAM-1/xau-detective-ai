@@ -27,6 +27,18 @@ def test_first_refresh_creates_demo_session():
     assert monitor.session_changed(account()) is False
 
 
+def test_terminal_autotrading_disabled_blocks_execution_permission():
+    monitor = MT5SessionMonitor()
+    state = monitor.refresh(
+        account(),
+        connected=True,
+        connection_healthy=True,
+        execution_enabled=True,
+        terminal_trade_allowed=False,
+    )
+    assert state.capabilities.trading_allowed is False
+
+
 def test_monitor_detects_account_switch():
     monitor = MT5SessionMonitor()
     monitor.refresh(

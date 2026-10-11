@@ -248,12 +248,23 @@ def main() -> int:
     changed = changed_files(args.base, args.head)
     if changed:
         findings.append(("PASS", f"Commit impact: {len(changed)} file(s) changed between {args.base[:8]} and {args.head[:8]}."))
-        source_changed = [p for p in changed if p.startswith("src/xau_detective/") and p.endswith(".py")]
-        changed_tests = {Path(p).stem.removeprefix("test_") for p in changed if p.startswith("tests/test_")}
+        source_changed = [
+            p for p in changed
+            if p.startswith("src/xau_detective/") and p.endswith(".py")
+        ]
+        changed_test_paths = [
+            ROOT / p
+            for p in changed
+            if p.startswith("tests/test_") and p.endswith(".py")
+        ]
+        # Match changed source modules against imports in changed test files,
+        # not only test filenames. Regression suites often group tests by
+        # concern (for example, numeric hardening) rather than source filename.
+        changed_test_targets = test_targets(changed_test_paths)
         for path in source_changed:
             name = Path(path).stem
-            if name != "__init__" and name not in changed_tests:
-                findings.append(("WARN", f"Changed source '{name}.py' has no matching test file changed in this commit."))
+            if name != "__init__" and name not in changed_test_targets:
+                findings.append(("WARN", f"Changed source '{name}.py' has no matching test coverage changed in this commit."))
 
     failures = sum(status == "FAIL" for status, _ in findings)
     warnings = sum(status == "WARN" for status, _ in findings)

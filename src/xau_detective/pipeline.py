@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
+from typing import Callable
 
 from .candlestick import detect_candlestick_patterns, detect_price_action_moves, interpret_pattern_read
 from .data_quality import validate_candles
@@ -126,6 +127,8 @@ def analyze_market(
     config: AnalysisConfig | None = None,
     execution: ExecutionSnapshot | None = None,
     daily_risk: DailyRiskState | None = None,
+    gap_is_expected: Callable[[object, object], bool] | None = None,
+    gap_is_expected_for_timeframe: Callable[[object, object, Timeframe], bool] | None = None,
 ) -> MarketAnalysis:
     config = config or AnalysisConfig()
     timestamp = now or datetime.now(UTC)
@@ -146,7 +149,13 @@ def analyze_market(
             and candles[-1].timestamp + expected_interval(timeframe) > timestamp
         ):
             return _no_trade(f"OPEN_CANDLE:{timeframe.value}", timestamp, session=session)
-        quality = validate_candles(candles, expected_interval(timeframe))
+        quality = validate_candles(
+            candles,
+            expected_interval(timeframe),
+            gap_is_expected=gap_is_expected,
+            timeframe=timeframe,
+            gap_is_expected_for_timeframe=gap_is_expected_for_timeframe,
+        )
         if not quality.usable:
             return _no_trade(
                 f"DATA_QUALITY:{timeframe.value}:{quality.reasons[0]}",

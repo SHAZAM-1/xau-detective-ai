@@ -2,7 +2,7 @@
 
 Evidence-driven XAUUSD trading research and decision-support system.
 
-> **Status:** V1 deterministic engine foundation — market features, regime analysis, evidence gating, MT5 ingestion, risk sizing, and trade memory are implemented. Statistical learning is deliberately gated behind closed-trade validation.
+> **Status:** Deterministic research engine plus an opt-in MT5 Demo runtime. Automated execution is disabled by default and Live execution remains locked. A green CI suite does not replace read-only validation against the user's actual MT5 Demo terminal; broker session/DST behavior and end-to-end broker integration remain evidence-gated.
 
 ## Mission
 
@@ -88,6 +88,30 @@ A loss can therefore become a research observation such as:
 - missed-exit/target review
 
 The important safety rule is: **the bot does not blindly rewrite its strategy after one loss or one win**. Learning happens from a closed historical sample, then a new rule/model must survive out-of-sample and walk-forward validation before it can influence live configuration.
+
+## MT5 Demo runtime and operational safety
+
+The runtime wraps the existing trading service and evaluates only newly closed M5 candles after loading closed D1/H4/H1/M15/M5 data. Per-timeframe staleness limits, candle-quality checks, market-tick freshness checks, broker constraints, the execution gate, and durable JSONL audit/trade journals are applied before any explicitly enabled Demo order can be sent.
+
+- Default invocation is non-executing; `--execute-demo` is an explicit Demo-only opt-in, not permission for Live execution.
+- An uncertain order-submission result remains pending and must be reconciled; the same idempotency key is not blindly retried.
+- Session/account switches latch an execution block until explicit acknowledgement of the verified Demo identity.
+- The market-hours evidence collector is read-only and refuses to infer Demo mode when the MT5 Demo constant is unavailable. Thin historical samples are marked incomplete instead of being treated as sufficient evidence.
+- Do not consider the runtime production-ready solely because tests pass. Actual MT5 Demo integration and broker-session/DST evidence must be reviewed separately.
+
+Analysis-only one-shot example (does not opt into order execution):
+
+```powershell
+python -m xau_detective.mt5_demo_runtime --once
+```
+
+Read-only broker-session evidence collection:
+
+```powershell
+python -m xau_detective.market_hours_evidence --symbol XAUUSD
+```
+
+Both commands require an available MT5 terminal and an environment where the project and optional MetaTrader5 dependency are installed.
 
 ## Repository map
 

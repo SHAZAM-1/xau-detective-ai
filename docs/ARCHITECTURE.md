@@ -45,6 +45,23 @@ The capability layer records:
 
 This separates **connected to a demo account** from **authorized to send orders**.
 
+## MT5 Demo runtime boundary
+
+The operational runtime is a thin loop around the existing service, not a second strategy engine. It:
+
+- obtains closed D1/H4/H1/M15/M5 candles and rejects malformed, missing, duplicate, out-of-order, or stale snapshots;
+- checks that the terminal tick clock is timezone-aware, no more than two minutes stale, and not more than 30 seconds in the future before using wall-clock UTC for candle closure;
+- evaluates at most once per newly closed M5 candle and derives a deterministic idempotency key from symbol, timeframe, and candle timestamp;
+- persists the audit stream and trade journal as JSONL under the configured runtime log directory; corrupt persistence data must stop initialization rather than silently falling back to memory;
+- keeps uncertain broker submissions pending for reconciliation instead of blindly retrying the same key;
+- latches an execution block after account/server/environment changes until an explicit acknowledgement of the exact Demo identity.
+
+The default runtime mode does not send orders. Demo execution requires the explicit `--execute-demo` option and still passes the existing Demo/account, symbol, broker, risk, margin, and execution gates. Live execution remains locked.
+
+The market-hours evidence collector uses read-only candle-history APIs and never calls order submission/modification/closure APIs. Each window/timeframe has a minimum evidence sample threshold; insufficient history is recorded in the output and makes the report incomplete. Its output must be reviewed against the actual broker terminal before market-gap/DST policy is treated as verified.
+
+CI proves deterministic test and static-check behavior only. It does not prove broker availability, live market sessions, or real MT5 order/reconciliation behavior. Until the read-only Demo integration and broker-session evidence are reviewed, those external checks remain unverified.
+
 ## Major modules
 
 ### 1. Ingestion

@@ -10,7 +10,7 @@ from enum import Enum
 from decimal import Decimal
 from typing import Any
 
-from .mt5_position_manager import LifecycleSnapshot, MT5PositionManager
+from .mt5_position_manager import MT5PositionManager
 
 
 class TradeLifecycleState(str, Enum):
@@ -86,8 +86,6 @@ class MT5TradeReconciler:
         position_id: str | None = None,
         requested_volume: str | None = None,
     ) -> ReconciliationResult:
-        snapshot: LifecycleSnapshot = self._positions.snapshot()
-
         if position_id is not None:
             position = self._positions.find_ticket(position_id)
             if position is not None and hasattr(position, "volume"):
@@ -133,15 +131,11 @@ class MT5TradeReconciler:
                 "HISTORY_DEAL_FOUND",
             )
 
-        if order_id is not None and snapshot.active:
-            return ReconciliationResult(
-                TradeLifecycleState.ORDER_ACCEPTED,
-                order_id,
-                position_id,
-                None,
-                "ORDER_ACCEPTED_NO_ACTIVE_MATCH",
-            )
-
+        # An unrelated active position/order for the same symbol and magic is
+        # not proof that this specific submission reached the broker. Only a
+        # matching ticket or matching history record can resolve the attempt.
+        # Otherwise retain NOT_FOUND so the caller keeps the submission in
+        # recovery-required state instead of falsely declaring it accepted.
         return ReconciliationResult(
             TradeLifecycleState.NOT_FOUND,
             order_id,

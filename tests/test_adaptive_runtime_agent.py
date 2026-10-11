@@ -96,3 +96,12 @@ def test_agent_blocks_repeated_runtime_failures():
 
     assert report.safe is False
     assert report.repeated_failures == ("MT5_TICK_UNAVAILABLE",)
+
+
+
+def test_forbidden_adaptation_action_check_is_case_and_whitespace_insensitive():
+    assert AdaptiveRuntimeAgent.is_strategy_change("enable_live_execution")
+    assert AdaptiveRuntimeAgent.is_strategy_change(" ENABLE LIVE EXECUTION ")
+    assert AdaptiveRuntimeAgent.is_strategy_change("Change_Risk_Fraction")
+    assert not AdaptiveRuntimeAgent.is_strategy_change("BROKER_SPEC_REFRESH")
+    assert not AdaptiveRuntimeAgent.is_strategy_change(None)

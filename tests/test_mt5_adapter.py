@@ -117,3 +117,41 @@ def test_candle_from_mt5_rejects_invalid_timestamp_type():
                 close=3905,
             )
         )
+
+
+
+def test_candle_from_mt5_supports_structured_field_access():
+    class NumpyVoidLike:
+        def __init__(self):
+            self.values = {
+                "time": 1767225600,
+                "open": 4000,
+                "high": 4010,
+                "low": 3990,
+                "close": 4005,
+                "tick_volume": 10,
+            }
+
+        def __getitem__(self, name):
+            return self.values[name]
+
+    candle = candle_from_mt5(NumpyVoidLike())
+    assert candle.close == Decimal(4005)
+    assert candle.volume == Decimal(10)
+
+
+def test_candle_from_mt5_accepts_numeric_timestamp_like_numpy():
+    class NumericLike:
+        def __float__(self):
+            return 1767225600.0
+
+    candle = candle_from_mt5(
+        SimpleNamespace(
+            time=NumericLike(),
+            open=4000,
+            high=4010,
+            low=3990,
+            close=4005,
+        )
+    )
+    assert candle.timestamp == datetime.fromtimestamp(1767225600, tz=UTC)

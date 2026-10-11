@@ -19,8 +19,13 @@ def _utc_timestamp(value: Any) -> datetime:
     if isinstance(value, bool):
         raise TypeError("MT5 candle timestamp must be numeric or datetime")
 
-    if isinstance(value, (int, float)):
-        return datetime.fromtimestamp(value, tz=UTC)
+    try:
+        numeric_value = float(value)
+    except (TypeError, ValueError):
+        numeric_value = None
+
+    if numeric_value is not None:
+        return datetime.fromtimestamp(numeric_value, tz=UTC)
 
     if isinstance(value, datetime):
         if value.tzinfo is None:
@@ -34,9 +39,15 @@ def candle_from_mt5(rate: Any) -> Candle:
     def get(name: str) -> Any:
         if isinstance(rate, dict):
             return rate[name]
-        return getattr(rate, name)
+        try:
+            return rate[name]
+        except (TypeError, KeyError, IndexError):
+            return getattr(rate, name)
 
-    volume = get("tick_volume") if (isinstance(rate, dict) and "tick_volume" in rate) or hasattr(rate, "tick_volume") else 0
+    try:
+        volume = get("tick_volume")
+    except (AttributeError, TypeError, KeyError, IndexError):
+        volume = 0
     return Candle(
         timestamp=_utc_timestamp(get("time")),
         open=_decimal(get("open")),
