@@ -41,12 +41,13 @@ class MT5SessionMonitor:
         symbol: str = "XAUUSD",
         symbol_available: bool = True,
         mt5_module: Any | None = None,
-        terminal_trade_allowed: bool = False,
+        terminal_trade_allowed: bool = True,
     ) -> MT5SessionState:
         """Refresh capabilities using account and terminal trade permissions.
 
         Account-side and terminal-side permissions must both allow trading.
-        Missing terminal permission evidence fails closed by default.
+        The default keeps compatibility with non-MT5 callers that do not model
+        terminal state explicitly.
         """
         environment = detect_environment_from_mt5(
             account_info,
